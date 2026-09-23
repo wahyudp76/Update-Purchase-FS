@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Order PR &amp; PO — Purchase Dashboard</title>
+<style>
+:root{
+  --bg:#f4f5f7;
+  --card:#ffffff;
+  --line:#e7e9ee;
+  --txt:#0f172a;
+  --muted:#64748b;
+  --accent:#4f46e5;
+  --accent-2:#0ea5e9;
+  --ok:#10b981;
+  --warn:#f59e0b;
+  --crit:#ef4444;
+  --purple:#8b5cf6;
+  --radius:16px;
+  --shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px -12px rgba(15,23,42,.12);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--txt);
+  -webkit-font-smoothing:antialiased;
+  font-size:14px;
+}
+a{color:var(--accent);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+
+/* ---------- Header ---------- */
+header.top{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:saturate(180%) blur(12px);
+  border-bottom:1px solid var(--line);
+}
+.header-inner{padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand .logo{
+  width:38px;height:38px;border-radius:11px;flex-shrink:0;
+  background:linear-gradient(135deg,#4f46e5,#0ea5e9);
+  display:flex;align-items:center;justify-content:center;color:#fff;
+  box-shadow:0 6px 14px -6px rgba(79,70,229,.55);
+}
+.brand h1{font-size:16.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.brand .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sync-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:#fff}
+.sync-pill .dot{width:8px;height:8px;border-radius:50%}
+.sync-pill.wrap-on{white-space:nowrap}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(16,185,129,.15)}
+.dot.off{background:var(--muted)}
+.dot.load{background:var(--accent-2);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.btn{
+  border:1px solid var(--line);background:#fff;color:var(--txt);
+  border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:7px;transition:.15s;
+}
+.btn:hover{border-color:#c9cdd6;background:#fafbfc}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#4338ca}
+.btn svg{width:15px;height:15px}
+
+/* ---------- Nav tabs ---------- */
+nav.tabs{
+  padding:0 22px;display:flex;gap:6px;overflow-x:auto;
+  border-bottom:1px solid var(--line);background:rgba(255,255,255,.7);
+  scrollbar-width:none;
+}
+nav.tabs::-webkit-scrollbar{display:none}
+.tab{
+  display:inline-flex;align-items:center;gap:8px;padding:12px 15px;
+  font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;
+  border-bottom:2.5px solid transparent;white-space:nowrap;transition:.15s;
+}
+.tab svg{width:16px;height:16px}
+.tab:hover{color:var(--txt)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ---------- Layout ---------- */
+main{padding:22px;max-width:1280px;margin:0 auto}
+section.tab-page{animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.toolbar .spacer{flex:1}
+.search{
+  display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+  border-radius:11px;padding:8px 12px;min-width:240px;
+}
+.search input{border:none;outline:none;font-size:13px;width:100%;background:none;color:var(--txt)}
+select.select{
+  border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 11px;
+  font-size:12.5px;font-weight:600;color:var(--txt);outline:none;
+}
+
+/* ---------- Cards & grid ---------- */
+.grid{display:grid;gap:16px}
+.cols-5{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.cols-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.cols-3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.card h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3 svg{width:15px;height:15px}
+.kpi{position:relative;overflow:hidden}
+.kpi .ic{
+  width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  color:#fff;margin-bottom:12px;
+}
+.kpi .val{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.kpi .lbl{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:4px}
+.kpi .sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+.spark{position:absolute;right:-14px;top:-14px;opacity:.5;width:96px;height:96px}
+
+/* ---------- Bars / donut ---------- */
+.hbars{display:flex;flex-direction:column;gap:11px}
+.hbar-label{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;color:var(--txt)}
+.hbar-label .hbar-val{font-weight:700;color:var(--muted)}
+.hbar-track{height:8px;background:#eef0f4;border-radius:999px;overflow:hidden}
+.hbar-fill{height:100%;border-radius:999px;transition:width .5s ease}
+.flex-split{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.legend{display:flex;flex-direction:column;gap:9px;min-width:150px}
+.legend .row{display:flex;align-items:center;gap:9px;font-size:12.5px}
+.legend .sw{width:11px;height:11px;border-radius:3.5px;flex-shrink:0}
+.legend .num{margin-left:auto;font-weight:700;color:var(--muted)}
+
+/* ---------- Tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+table{width:100%;border-collapse:collapse;font-size:12.8px;min-width:640px}
+thead th{
+  text-align:left;padding:11px 13px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);background:#fafbfc;border-bottom:1px solid var(--line);white-space:nowrap;
+  position:sticky;top:0;
+}
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{color:var(--accent)}
+tbody td{padding:11px 13px;border-bottom:1px solid #f0f1f5;vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#f8f9fc}
+td.mono{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.cellitems{margin:0;padding-left:15px;display:flex;flex-direction:column;gap:2px}
+.cellitems li{font-size:12.3px;line-height:1.4}
+
+/* ---------- Badges ---------- */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.ok{background:#ecfdf5;color:#047857}
+.badge.warn{background:#fffbeb;color:#b45309}
+.badge.crit{background:#fef2f2;color:#b91c1c}
+.badge.na{background:#f1f5f9;color:#64748b}
+.badge.appr{background:#eef2ff;color:#4338ca}
+.badge.appr-ok{background:#ecfdf5;color:#047857}
+.badge.appr-no{background:#fef2f2;color:#b91c1c}
+.badge.divi{background:#eef2ff;color:#4338ca}
+
+/* ---------- Age accent ---------- */
+.row-warn{background:#fffdf5!important}
+.row-crit{background:#fef7f7!important}
+tr.row-warn:hover{background:#fff8e6!important}
+tr.row-crit:hover{background:#ffeded!important}
+
+/* ---------- Status stepper ---------- */
+.stepper{display:flex;flex-wrap:wrap;gap:10px}
+.step{flex:1;min-width:150px;background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px;position:relative}
+.step .num{font-size:22px;font-weight:800}
+.step .cap{font-size:12px;color:var(--muted);margin-top:2px}
+.step .bar{height:5px;border-radius:99px;background:#e8ebf0;margin-top:10px;overflow:hidden}
+.step .bar .fill{height:100%;border-radius:99px}
+.step.done{background:#f0fdf6;border-color:#bbf1d4}
+
+/* ---------- Divisi cards ---------- */
+.divi-card{cursor:pointer;transition:.15s;position:relative}
+.divi-card:hover{transform:translateY(-3px);border-color:#c7cbd6;box-shadow:0 14px 30px -16px rgba(15,23,42,.25)}
+.divi-head{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+.divi-ava{width:40px;height:40px;border-radius:11px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+.divi-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.divi-meta .m{background:#f8fafc;border-radius:10px;padding:9px 11px}
+.divi-meta .m .t{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.divi-meta .m .v{font-size:16px;font-weight:800;margin-top:2px}
+
+/* ---------- Empty / misc ---------- */
+.empty{padding:34px;text-align:center;color:var(--muted);font-size:13px}
+.range-wrap{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;flex-wrap:wrap}
+.range-wrap label{font-size:12px;font-weight:700;color:var(--muted)}
+input[type=range]{accent-color:var(--accent);width:180px}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.mini{font-size:12px;color:var(--muted)}
+.count-pill{font-size:12px;color:var(--muted);font-weight:600;padding:7px 12px;background:#fff;border:1px solid var(--line);border-radius:999px}
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#0f172a;color:#fff;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;
+  opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 12px 30px -10px rgba(0,0,0,.4);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:640px){
+  .header-inner{padding:12px 14px}
+  main{padding:14px}
+  nav.tabs{padding:0 8px}
+  .search{min-width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      </div>
+      <div>
+        <h1>Monitor Order PR &amp; PO</h1>
+        <div class="sub">Bahan &amp; Spareparts · Sheet "Response" · Auto-sync</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="sync-pill" id="syncPill"><span class="dot load" id="syncDot"></span><span id="syncText">Memuat…</span></span>
+      <label class="sync-pill wrap-on" style="cursor:pointer" title="Auto sync tiap 5 menit">
+        <input type="checkbox" id="autoSync" checked style="accent-color:var(--accent)"> Auto-sync 5 menit
+      </label>
+      <button class="btn" id="refreshBtn" title="Ambil data terbaru dari spreadsheet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Refresh
+      </button>
+      <button class="btn primary" id="exportBtn" title="Export data terfilter ke CSV">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabsNav"></nav>
+</header>
+
+<main id="main"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+/* ============ CONFIG ============ */
+var SHEET_ID = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
+var SHEET_NAME = 'Response';
+var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(SHEET_NAME);
+
+/* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu */
+var SNAPSHOT = [
+  ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","11290820","40005620","OK","Belum","Untuk keperluan tenaga kerja irigasi","Kantor"],
+  ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","10210111","4002041","OK","Belum","Untuk cuci steam mesin irigasi",""]
+];
+
+/* ============ STATE ============ */
+var ROWS = [];
+var LIVE = false;
+var LAST_SYNC = null;
+var AUTO_TIMER = null;
+var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[] };
+
+var TABS = [
+  {id:'overview', label:'Overview', icon:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'},
+  {id:'jenis',   label:'Jenis Order', icon:'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>'},
+  {id:'divisi',  label:'Per Divisi', icon:'<circle cx="9" cy="8" r="3"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 4a3 3 0 0 1 0 6"/><path d="M22 21v-1a6 6 0 0 0-4-5.6"/>'},
+  {id:'status',  label:'Status & Approval', icon:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5.5"/>'},
+  {id:'aging',   label:'Aging Order', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'},
+  {id:'tabel',   label:'Tabel Detail', icon:'<path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M4 14h16"/><path d="M9 9v11"/>'}
+];
+
+var DIVI_COLORS = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b'];
+var STATUS_COLORS = {'Selesai':'#10b981','Menunggu Approval':'#f59e0b','Belum PO':'#ef4444','Tanpa Divisi':'#64748b'};
+
+/* ============ UTIL ============ */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function nf(n){ return new Intl.NumberFormat('id-ID').format(n||0); }
+function parseDMY(s){
+  if(!s) return null;
+  var m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1]);
+}
+function daysAgo(d){
+  if(!d) return null;
+  var t = new Date(); t.setHours(0,0,0,0);
+  return Math.max(0, Math.round((t - d)/86400000));
+}
+function isOK(v){
+  var s = String(v==null?'':v).toLowerCase();
+  if(!s) return false;
+  return /ok|approve|approved|setuju|yes|sudah|selesai|done|agree/.test(s);
+}
+function parseItems(txt){
+  if(!txt) return [];
+  return String(txt).split(/\r?\n/).map(function(l){ return l.replace(/^[-•*·]\s*/, '').replace(/^\d+[.)]\s*/,'').trim(); }).filter(Boolean);
+}
+function splitQty(line){
+  if(!line) return {name:'', qty:0, unit:''};
+  var m = line.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)?\s*$/);
+  if(m) return {name:m[1].trim(), qty:parseFloat(m[2].replace(',','.')), unit:(m[3]||'').trim()};
+  return {name:line.trim(), qty:1, unit:''};
+}
+function monthKey(d){ return d ? d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0') : ''; }
+function monthLabel(k){
+  var p = k.split('-'); var names=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return names[+p[1]-1]+' '+p[0];
+}
+
+/* ============ NORMALIZE ============ */
+function normalize(raw){
+  var get = function(label){
+    var v = raw[label.toLowerCase()];
+    return (v==null || v==='') ? '' : String(v).trim();
+  };
+  var ts = get('Timestamp');
+  var tgl = get('Tanggal Input Reservasi');
+  var divisi = get('Divisi') || 'Tanpa Divisi';
+  var jenis = get('Jenis Order');
+  var pr = get('Nomor PR');
+  var po = get('Nomor PO');
+  var a1 = get('Approval 1');
+  var a2 = get('Approval 2');
+  var ket = get('Keterangan');
+  var keperluan = get('Keperluan Order') || '—';
+
+  var items = parseItems(jenis);
+  var dateObj = parseDMY(tgl) || parseDMY(ts);
+  var age = dateObj ? daysAgo(dateObj) : null;
+  var hasPO = po !== '';
+  var appr1 = isOK(a1), appr2 = isOK(a2);
+  var status = !hasPO ? 'Belum PO' : (!appr1 || !appr2) ? 'Menunggu Approval' : 'Selesai';
+  var progress = [hasPO, appr1, appr2].filter(Boolean).length;
+
+  return {
+    raw: raw,
+    ts: ts, tgl: tgl, divisi: divisi, jenis: jenis, pr: pr, po: po,
+    a1: a1, a2: a2, ket: ket, keperluan: keperluan,
+    items: items, hasPO: hasPO, appr1: appr1, appr2: appr2,
+    status: status, progress: progress,
+    date: dateObj, age: age, mkey: monthKey(dateObj)
+  };
+}
+
+/* ============ FETCH ============ */
+function loadFromSnapshot(){
+  return SNAPSHOT.map(function(r){
+    return normalize({
+      'Timestamp':r[0], 'Tanggal Input Reservasi':r[1], 'Divisi':r[2], 'Jenis Order':r[3],
+      'Nomor PR':r[4], 'Nomor PO':r[5], 'Approval 1':r[6], 'Approval 2':r[7],
+      'Keterangan':r[8], 'Keperluan Order':r[9]
+    });
+  });
+}
+
+function loadLive(){
+  return fetch(GVURL, {cache:'no-store'}).then(function(res){
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return res.text();
+  }).then(function(text){
+    var start = text.indexOf('{');
+    var end = text.lastIndexOf('}');
+    if(start<0 || end<0) throw new Error('Format tidak dikenali');
+    var data = JSON.parse(text.slice(start, end+1));
+    if(data.status !== 'ok') throw new Error('status '+data.status);
+    var cols = data.table.cols.map(function(c){ return c.label; });
+    return data.table.rows.map(function(r){
+      var o = {};
+      r.c.forEach(function(cell, i){
+        var v = '';
+        if(cell){
+          if(cell.f != null) v = cell.f;
+          else if(cell.v != null) v = cell.v;
+          else v = '';
+        }
+        o[cols[i]] = v;
+      });
+      return o;
+    });
+  }).then(function(rawRows){
+    return rawRows.map(normalize);
+  });
+}
+
+function setRows(rows, live, err){
+  ROWS = rows || [];
+  LIVE = !!(live && !err);
+  LAST_SYNC = new Date();
+  updateSyncPill(err);
+  render();
+}
+
+function updateSyncPill(err){
+  var dot = document.getElementById('syncDot');
+  var txt = document.getElementById('syncText');
+  if(err){
+    dot.className = 'dot off';
+    txt.textContent = 'Offline (snapshot)';
+    txt.title = 'Gagal ambil data live: ' + err + '. Menampilkan snapshot offline.';
+  } else if(LIVE){
+    dot.className = 'dot on';
+    txt.textContent = 'Tersinkron · ' + timeStr(LAST_SYNC);
+    txt.title = 'Terhubung ke spreadsheet. Terakhir sync: ' + LAST_SYNC.toLocaleString('id-ID');
+  } else {
+    dot.className = 'dot off';
+    txt.textContent = 'Offline (snapshot)';
+    txt.title = 'Tidak ada jaringan di preview ini. Dashboard tetap tampil dengan snapshot data.';
+  }
+}
+function timeStr(d){ if(!d) return ''; return d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}); }
+
+async function refresh(){
+  var btn = document.getElementById('refreshBtn');
+  var dot = document.getElementById('syncDot'); dot.className='dot load';
+  var txt = document.getElementById('syncText'); txt.textContent='Memuat…';
+  btn.disabled = true;
+  try{
+    var rows = await loadLive();
+    setRows(rows, true, null);
+    toast('Data berhasil disinkronkan ('+rows.length+' baris)');
+  }catch(e){
+    setRows(loadFromSnapshot(), false, String(e && e.message || e));
+    toast('Gagal sinkron — menampilkan snapshot offline');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+/* ============ DERIVED ============ */
+function agingClass(r){
+  if(r.age == null) return 'na';
+  if(r.age >= state.critTh) return 'crit';
+  if(r.age >= state.warnTh) return 'warn';
+  return 'ok';
+}
+function agingBadge(r){
+  var cls = agingClass(r);
+  if(cls==='crit') return '<span class="badge crit"><span class="dot"></span>'+r.age+' hr · kritis</span>';
+  if(cls==='warn') return '<span class="badge warn"><span class="dot"></span>'+r.age+' hr · warning</span>';
+  if(cls==='na')  return '<span class="badge na">—</span>';
+  return '<span class="badge ok"><span class="dot"></span>'+r.age+' hr</span>';
+}
+function statusBadge(r){
+  var c = STATUS_COLORS[r.status] || '#64748b';
+  return '<span class="badge" style="background:'+hexA(c,0.14)+';color:'+c+'"><span class="dot"></span>'+esc(r.status)+'</span>';
+}
+function apprBadge(val, ok){
+  if(ok) return '<span class="badge appr-ok">✓ '+esc(val || 'OK')+'</span>';
+  return '<span class="badge appr-no">'+esc(val || '— belum —')+'</span>';
+}
+function hexA(hex, a){
+  var h = hex.replace('#','');
+  var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+function divisiColor(d){
+  var list = divisiList();
+  return DIVI_COLORS[list.indexOf(d) % DIVI_COLORS.length];
+}
+var _dlist = null;
+function divisiList(){ if(_dlist) return _dlist; var m={}; ROWS.forEach(function(r){m[r.divisi]=1;}); _dlist=Object.keys(m).sort(); return _dlist; }
+
+function kpi(ic, val, lbl, sub, bg){
+  return '<div class="card kpi">'
+    + '<span class="spark" style="color:'+bg+'" aria-hidden="true"><svg width="96" height="96" viewBox="0 0 96 96"><circle cx="84" cy="12" r="72" fill="'+bg+'" opacity=".12"/></svg></span>'
+    + '<div class="ic" style="background:'+bg+'">'+ic+'</div>'
+    + '<div class="val">'+val+'</div>'
+    + '<div class="lbl">'+lbl+'</div>'
+    + (sub?'<div class="sub">'+sub+'</div>':'')
+    + '</div>';
+}
+
+/* ============ CHARTS ============ */
+function hbar(items, opts){
+  opts = opts || {};
+  if(!items.length) return '<div class="empty">Belum ada data</div>';
+  var max = 1;
+  items.forEach(function(i){ max = Math.max(max, i.value); });
+  return '<div class="hbars">' + items.map(function(i){
+    var pct = (i.value/max*100).toFixed(1);
+    return '<div>'
+      + '<div class="hbar-label"><span>'+esc(i.label)+'</span><span class="hbar-val">'+nf(i.value)+(opts.unit||'')+'</span></div>'
+      + '<div class="hbar-track"><div class="hbar-fill" style="width:'+pct+'%;background:'+i.color+'"></div></div>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+
+function donut(parts, size){
+  var total = 0; parts.forEach(function(p){ total += p.value; });
+  if(!total) return '<div class="empty">Belum ada data</div>';
+  var r = size/2, c = size/2;
+  var a0 = -Math.PI/2, segs = '';
+  parts.forEach(function(p){
+    var frac = p.value/total;
+    var a1 = a0 + frac*Math.PI*2;
+    var x0 = c + r*Math.cos(a0), y0 = c + r*Math.sin(a0);
+    var x1 = c + r*Math.cos(a1), y1 = c + r*Math.sin(a1);
+    var large = frac > 0.5 ? 1 : 0;
+    segs += '<path d="M'+c+' '+c+' L'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+large+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)+' Z" fill="'+p.color+'"/>';
+    a0 = a1;
+  });
+  var lg = '<div class="legend">' + parts.map(function(p){
+    var pct = Math.round(p.value/total*1000)/10;
+    return '<div class="row"><span class="sw" style="background:'+p.color+'"></span>'+esc(p.label)+'<span class="num">'+nf(p.value)+' · '+pct+'%</span></div>';
+  }).join('') + '</div>';
+  var svg = '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+segs+'<circle cx="'+c+'" cy="'+c+'" r="'+(r*0.62)+'" fill="#fff"/><text x="'+c+'" y="'+(c-4)+'" text-anchor="middle" font-size="22" font-weight="800" fill="#0f172a">'+nf(total)+'</text><text x="'+c+'" y="'+(c+14)+'" text-anchor="middle" font-size="10.5" fill="#64748b">order</text></svg>';
+  return '<div class="flex-split">'+svg+lg+'</div>';
+}
+
+function lineChart(points){
+  if(!points.length) return '<div class="empty">Belum ada data</div>';
+  var w = 640, h = 210, pad = 30;
+  var max = 1; points.forEach(function(p){ max = Math.max(max, p.value); });
+  var n = points.length;
+  var x = function(i){ return n===1 ? w/2 : pad + i*(w-2*pad)/(n-1); };
+  var y = function(v){ return h - pad - (v/max)*(h-2*pad); };
+  var pts = points.map(function(p,i){ return x(i).toFixed(1)+','+y(p.value).toFixed(1); });
+  var area = pad.toFixed(1)+','+(h-pad)+' ' + pts.join(' ') + ' ' + x(n-1).toFixed(1)+','+(h-pad);
+  var dots = points.map(function(p,i){
+    return '<circle cx="'+x(i).toFixed(1)+'" cy="'+y(p.value).toFixed(1)+'" r="3.6" fill="#4f46e5" stroke="#fff" stroke-width="2"/>';
+  }).join('');
+  var labels = points.map(function(p,i){
+    return '<text x="'+x(i).toFixed(1)+'" y="'+(h-8)+'" text-anchor="middle" font-size="10.5" fill="#64748b">'+esc(monthLabel(p.label))+'</text>';
+  }).join('');
+  var vals = points.map(function(p,i){
+    return '<text x="'+x(i).toFixed(1)+'" y="'+(y(p.value)-8)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">'+nf(p.value)+'</text>';
+  }).join('');
+  return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto">'
+    + '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f46e5" stop-opacity=".25"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></linearGradient></defs>'
+    + '<line x1="'+pad+'" y1="'+(h-pad)+'" x2="'+(w-pad)+'" y2="'+(h-pad)+'" stroke="#e7e9ee"/>'
+    + '<polygon points="'+area+'" fill="url(#ag)"/>'
+    + '<polyline points="'+pts.join(' ')+'" fill="none" stroke="#4f46e5" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>'
+    + dots + labels + vals
+    + '</svg>';
+}
+
+/* ============ RENDERERS ============ */
+var IC = {
+  docs:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+  box:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg>',
+  clock:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+  alert:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  check:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5.5"/></svg>'
+};
+
+function renderOverview(){
+  var total = ROWS.length;
+  var withPO = ROWS.filter(function(r){ return r.hasPO; }).length;
+  var waitAppr = ROWS.filter(function(r){ return r.status==='Menunggu Approval' || r.status==='Belum PO'; }).length;
+  var done = ROWS.filter(function(r){ return r.status==='Selesai'; }).length;
+  var itemLines = 0, qtyTotal = 0;
+  ROWS.forEach(function(r){ r.items.forEach(function(it){ itemLines++; qtyTotal += splitQty(it).qty; }); });
+  var warnCount = ROWS.filter(function(r){ var c=agingClass(r); return c==='warn'||c==='crit'; }).length;
+  var critCount = ROWS.filter(function(r){ return agingClass(r)==='crit'; }).length;
+
+  /* per divisi */
+  var byD = {}; ROWS.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
+  var divBars = Object.keys(byD).sort(function(a,b){return byD[b]-byD[a];}).map(function(d){
+    return {label:d, value:byD[d], color:divisiColor(d)};
+  });
+
+  /* status */
+  var byS = {'Selesai':done, 'Menunggu Approval':ROWS.filter(function(r){return r.status==='Menunggu Approval';}).length, 'Belum PO':ROWS.filter(function(r){return r.status==='Belum PO';}).length};
+  var sParts = Object.keys(byS).filter(function(k){return byS[k]>0;}).map(function(k){return {label:k, value:byS[k], color:STATUS_COLORS[k]};});
+
+  /* trend bulanan */
+  var byM = {}; ROWS.forEach(function(r){ if(r.mkey){ byM[r.mkey]=(byM[r.mkey]||0)+1; } });
+  var trend = Object.keys(byM).sort().map(function(k){ return {label:k, value:byM[k]}; });
+
+  /* top items */
+  var itemCount = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); itemCount[n]=(itemCount[n]||0)+1; }); });
+  var topItems = Object.keys(itemCount).map(function(n){return {label:n, value:itemCount[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
+  topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; });
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh setiap 5 menit dari sheet "Response"</span></div>'
+    + '<div class="grid cols-5">'
+    + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5')
+    + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9')
+    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO dibuat / belum PO & approval belum lengkap', '#f59e0b')
+    + kpi(IC.check, nf(done), 'Selesai', 'Approval 1 & 2 lengkap', '#10b981')
+    + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444')
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>Order per Divisi</h3>'+hbar(divBars)+'</div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Status Order</h3>'+donut(sParts, 168)+'</div>'
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 6-8"/><path d="M14 7h4v4"/></svg>Tren Order per Bulan</h3>'+lineChart(trend)+'</div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7 7 .3-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.3 9 8z"/></svg>Item Paling Sering Dipesan</h3>'+hbar(topItems)+'</div>'
+    + '</div>'
+    + '</section>';
+}
+
+function renderJenis(){
+  var items = [];
+  ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); items.push({name:q.name, qty:q.qty, unit:q.unit, row:r}); }); });
+  var names = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var n=splitQty(it).name.toLowerCase(); names[n]=(names[n]||0)+1; }); });
+  var top = Object.keys(names).map(function(n){return {label:n, value:names[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
+  top.forEach(function(t,i){ t.color=['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b','#ef4444'][i%10]; });
+
+  var byKep = {}; ROWS.forEach(function(r){ byKep[r.keperluan]=(byKep[r.keperluan]||0)+1; });
+  var kepParts = Object.keys(byKep).sort(function(a,b){return byKep[b]-byKep[a];}).map(function(k){ return {label:k, value:byKep[k], color:['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][Object.keys(byKep).indexOf(k)%6]}; });
+
+  var qtySum = items.reduce(function(s,i){ return s+i.qty; }, 0);
+  var qtyByName = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); qtyByName[n]=(qtyByName[n]||0)+q.qty; }); });
+  var topQty = Object.keys(qtyByName).map(function(n){return {label:n, value:qtyByName[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
+
+  var itemRows = items.map(function(i){
+    return '<tr>'
+      + '<td>'+esc(i.name)+'</td>'
+      + '<td class="mono">'+nf(i.qty)+' '+(i.unit?esc(i.unit):'')+'</td>'
+      + '<td><span class="badge divi">'+esc(i.row.divisi)+'</span></td>'
+      + '<td class="mono">'+(i.row.pr?esc(i.row.pr):'—')+'</td>'
+      + '<td class="mono">'+(i.row.po?esc(i.row.po):'—')+'</td>'
+      + '<td>'+statusBadge(i.row)+'</td>'
+      + '<td>'+agingBadge(i.row)+'</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<section class="tab-page">'
+    + '<div class="grid cols-5">'
+    + kpi(IC.box, nf(items.length), 'Baris Item', 'baris barang yang dipesan', '#4f46e5')
+    + kpi(IC.docs, nf(names ? Object.keys(names).length : 0), 'Jenis Barang Unik', 'nama barang berbeda', '#0ea5e9')
+    + kpi(IC.check, nf(Math.round(qtySum)), 'Total Kuantitas', 'jumlah unit dipesan', '#10b981')
+    + kpi(IC.clock, nf(Object.keys(byKep).length), 'Kategori Keperluan', 'berdasarkan kolom Keperluan Order', '#8b5cf6')
+    + kpi(IC.alert, nf(top.length), 'Item Terpopuler', 'item paling sering muncul', '#f59e0b')
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3>Item Paling Sering Dipesan</h3>'+hbar(top)+'</div>'
+    + '<div class="card"><h3>Keperluan Order</h3>'+donut(kepParts, 168)+'</div>'
+    + '</div>'
+    + '<div class="card" style="margin-top:16px"><h3>Total Kuantitas per Item (Top 10)</h3>'+hbar(topQty.map(function(t){return {label:t.label, value:t.value, color:'#4f46e5'};}))+'</div>'
+    + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div></div>'
+    + '</section>';
+}
+
+function renderDivisi(){
+  var list = divisiList();
+  var byD = {}; ROWS.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
+  var cards = list.map(function(d){
+    var rs = ROWS.filter(function(r){ return r.divisi===d; });
+    var po = rs.filter(function(r){ return r.hasPO; }).length;
+    var wait = rs.filter(function(r){ return r.status==='Menunggu Approval'||r.status==='Belum PO'; }).length;
+    var done = rs.filter(function(r){ return r.status==='Selesai'; }).length;
+    var ages = rs.map(function(r){ return r.age; }).filter(function(a){ return a!=null; });
+    var avg = ages.length ? Math.round(ages.reduce(function(a,b){return a+b;},0)/ages.length) : 0;
+    var color = divisiColor(d);
+    return '<div class="card divi-card" data-d="'+esc(d)+'">'
+      + '<div class="divi-head"><div class="divi-ava" style="background:'+color+'">'+esc(d.replace(/\s+/g,'').slice(0,2).toUpperCase())+'</div><div><h3 style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--txt)">'+esc(d)+'</h3><span class="mini">'+nf(rs.length)+' order</span></div></div>'
+      + '<div class="divi-meta">'
+      + '<div class="m"><div class="t">PO dibuat</div><div class="v">'+nf(po)+'</div></div>'
+      + '<div class="m"><div class="t">Selesai</div><div class="v" style="color:#10b981">'+nf(done)+'</div></div>'
+      + '<div class="m"><div class="t">Menunggu</div><div class="v" style="color:#f59e0b">'+nf(wait)+'</div></div>'
+      + '<div class="m"><div class="t">Rata² umur</div><div class="v">'+nf(avg)+' hr</div></div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var bars = list.map(function(d){ return {label:d, value:byD[d], color:divisiColor(d)}; });
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar"><span class="count-pill">'+nf(list.length)+' divisi aktif</span><span class="spacer"></span><span class="mini">Klik kartu divisi untuk filter di Tabel Detail</span></div>'
+    + '<div class="grid cols-3">'+cards+'</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3>Jumlah Order per Divisi</h3>'+hbar(bars)+'</div>'
+    + '<div class="card"><h3>Perbandingan Status per Divisi</h3>'+divisiStatusBars(list)+'</div>'
+    + '</div>'
+    + '</section>';
+}
+
+function divisiStatusBars(list){
+  var html = '<div class="hbars">';
+  list.forEach(function(d){
+    var rs = ROWS.filter(function(r){ return r.divisi===d; });
+    var done = rs.filter(function(r){ return r.status==='Selesai'; }).length;
+    var wait = rs.filter(function(r){ return r.status==='Menunggu Approval'; }).length;
+    var noPO = rs.filter(function(r){ return r.status==='Belum PO'; }).length;
+    var tot = rs.length || 1;
+    html += '<div style="margin-bottom:12px"><div class="hbar-label"><span>'+esc(d)+'</span><span class="hbar-val">'+nf(rs.length)+'</span></div>';
+    html += '<div style="display:flex;height:9px;border-radius:99px;overflow:hidden;gap:2px;background:#eef0f4">';
+    if(done) html += '<div style="width:'+(done/tot*100)+'%;background:#10b981" title="Selesai '+done+'"></div>';
+    if(wait) html += '<div style="width:'+(wait/tot*100)+'%;background:#f59e0b" title="Menunggu approval '+wait+'"></div>';
+    if(noPO) html += '<div style="width:'+(noPO/tot*100)+'%;background:#ef4444" title="Belum PO '+noPO+'"></div>';
+    html += '</div>'
+      + '<div style="display:flex;gap:12px;margin-top:5px;font-size:11px;color:var(--muted)">'
+      + '<span><span style="color:#10b981">●</span> Selesai '+done+'</span>'
+      + '<span><span style="color:#f59e0b">●</span> Approval '+wait+'</span>'
+      + '<span><span style="color:#ef4444">●</span> Belum PO '+noPO+'</span>'
+      + '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderStatus(){
+  var noPO = ROWS.filter(function(r){ return !r.hasPO; }).length;
+  var waitAppr = ROWS.filter(function(r){ return r.hasPO && r.status==='Menunggu Approval'; }).length;
+  var done = ROWS.filter(function(r){ return r.status==='Selesai'; }).length;
+  var a1ok = ROWS.filter(function(r){ return r.appr1; }).length;
+  var a2ok = ROWS.filter(function(r){ return r.appr2; }).length;
+  var total = ROWS.length || 1;
+
+  /* baris yang perlu perhatian: approval belum lengkap */
+  var pending = ROWS.filter(function(r){ return r.status!=='Selesai'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
+
+  var pendingRows = pending.length ? pending.map(function(r){
+    var ac = agingClass(r);
+    var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
+    return '<tr class="'+cls+'">'
+      + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+      + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
+      + '<td class="mono">'+(r.po?esc(r.po):'<span class="badge crit">tanpa PO</span>')+'</td>'
+      + '<td>'+apprBadge(r.a1, r.appr1)+'</td>'
+      + '<td>'+apprBadge(r.a2, r.appr2)+'</td>'
+      + '<td>'+statusBadge(r)+'</td>'
+      + '<td>'+agingBadge(r)+'</td>'
+      + '</tr>';
+  }).join('') : '<tr><td colspan="8"><div class="empty">Semua order sudah lengkap approval ✓</div></td></tr>';
+
+  var steps = [
+    {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5'},
+    {cap:'PO Dibuat', n:ROWS.filter(function(r){return r.hasPO;}).length, color:'#0ea5e9'},
+    {cap:'Approval 1', n:a1ok, color:'#8b5cf6'},
+    {cap:'Approval 2', n:a2ok, color:'#10b981'}
+  ];
+  var stepper = steps.map(function(s, i){
+    var pct = Math.round(s.n/total*100);
+    var cls = pct===100 ? ' done' : '';
+    return '<div class="step'+cls+'"><div class="num">'+ (i===0? nf(total) : nf(s.n)) +'</div><div class="cap">'+s.cap+'</div><div class="bar"><div class="fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>';
+  }).join('');
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu perhatian approval</span><span class="spacer"></span><span class="mini">Order dengan approval belum lengkap tampil di bawah</span></div>'
+    + '<div class="card" style="margin-bottom:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses (Pipeline)</h3><div class="stepper">'+stepper+'</div></div>'
+    + '<div class="grid cols-3" style="margin-bottom:16px">'
+    + kpi(IC.check, nf(done), 'Selesai', 'Approval 1 & 2 lengkap', '#10b981')
+    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO ada, approval belum lengkap', '#f59e0b')
+    + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'Nomor PO belum dibuat', '#ef4444')
+    + '</div>'
+    + '<div class="card"><h3>⚠ Order yang Belum Lengkap Approval</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Status</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
+    + '</section>';
+}
+
+function renderAging(){
+  var sorted = ROWS.slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
+  var crit = ROWS.filter(function(r){ return agingClass(r)==='crit'; }).length;
+  var warn = ROWS.filter(function(r){ return agingClass(r)==='warn'; }).length;
+  var ok = ROWS.filter(function(r){ return agingClass(r)==='ok'; }).length;
+
+  var rows = sorted.map(function(r){
+    var ac = agingClass(r);
+    var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
+    var blockers = [];
+    if(!r.hasPO) blockers.push('<span class="badge crit">tanpa PO</span>');
+    if(!r.appr1) blockers.push('<span class="badge appr-no">appr.1 belum</span>');
+    if(!r.appr2) blockers.push('<span class="badge appr-no">appr.2 belum</span>');
+    return '<tr class="'+cls+'">'
+      + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+      + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
+      + '<td class="mono">'+(r.po?esc(r.po):'—')+'</td>'
+      + '<td>'+esc((r.items[0]||'') )+(r.items.length>1 ? ' <span class="mini">+'+ (r.items.length-1) +' item</span>' : '')+'</td>'
+      + '<td>'+agingBadge(r)+'</td>'
+      + '<td>'+(blockers.length? blockers.join(' ') : '<span class="badge ok">lengkap</span>')+'</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar">'
+    + '<div class="range-wrap"><label>Ambang warning:</label><input type="range" id="warnRange" min="1" max="30" value="'+state.warnTh+'"><span class="mini" id="warnRangeLbl">≥ '+state.warnTh+' hari</span><label>Ambang kritis:</label><input type="range" id="critRange" min="1" max="60" value="'+state.critTh+'"><span class="mini" id="critRangeLbl">≥ '+state.critTh+' hari</span></div>'
+    + '</div>'
+    + '<div class="grid cols-3" style="margin-bottom:16px">'
+    + kpi(IC.alert, nf(crit), 'Kritis', 'umur ≥ '+state.critTh+' hari — segera follow-up', '#ef4444')
+    + kpi(IC.clock, nf(warn), 'Warning', 'umur ≥ '+state.warnTh+' hari', '#f59e0b')
+    + kpi(IC.check, nf(ok), 'Aman', 'umur < '+state.warnTh+' hari', '#10b981')
+    + '</div>'
+    + '<div class="card"><h3>Daftar Order Berdasarkan Umur (terlama dulu)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Umur</th><th>Blocker</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + '<p class="hint">Baris diurutkan dari umur terlama. Order lama ditandai kuning (warning) / merah (kritis); kolom "Blocker" menunjukkan alasan belum selesai (tanpa PO / approval belum).</p></div>'
+    + '</section>';
+}
+
+function renderTable(){
+  var q = state.q.toLowerCase();
+  var rows = ROWS.filter(function(r){
+    if(state.divFilter!=='all' && r.divisi!==state.divFilter) return false;
+    if(state.stFilter!=='all' && r.status!==state.stFilter) return false;
+    if(q){
+      var hay = (r.divisi+' '+r.pr+' '+r.po+' '+r.jenis+' '+r.ket+' '+r.keperluan+' '+r.status).toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  state.exportRows = rows;
+
+  var srt = state;
+  rows.sort(function(a,b){
+    var ka, kb;
+    switch(srt.sortKey){
+      case 'tgl': ka = a.date? a.date.getTime():0; kb = b.date? b.date.getTime():0; break;
+      case 'divisi': ka=a.divisi; kb=b.divisi; return ka.localeCompare(kb)*srt.sortDir;
+      case 'pr': ka=parseInt(a.pr,10)||0; kb=parseInt(b.pr,10)||0; break;
+      case 'po': ka=parseInt(a.po,10)||0; kb=parseInt(b.po,10)||0; break;
+      case 'status': ka=a.status; kb=b.status; return ka.localeCompare(kb)*srt.sortDir;
+      case 'age': ka=a.age==null?-1:a.age; kb=b.age==null?-1:b.age; break;
+      default: ka=0; kb=0;
+    }
+    return (ka>kb?1:ka<kb?-1:0)*srt.sortDir;
+  });
+
+  var divOpts = ['<option value="all">Semua Divisi</option>'].concat(divisiList().map(function(d){ return '<option value="'+esc(d)+'"'+(state.divFilter===d?' selected':'')+'>'+esc(d)+'</option>'; })).join('');
+  var stOpts = ['<option value="all">Semua Status</option>','<option value="Selesai">Selesai</option>','<option value="Menunggu Approval">Menunggu Approval</option>','<option value="Belum PO">Belum PO</option>'].map(function(s){
+    var v=s.split('>')[0]; /* not used */
+    return s.replace('<option ', '<option ').replace('>'+s.split('<option value="')[1].split('"')[0]+'<','>'+s.split('<option value="')[1].split('"')[0]+'<');
+  }).join('');
+
+  stOpts = '<option value="all"'+(state.stFilter==='all'?' selected':'')+'>Semua Status</option>'
+    + '<option value="Selesai"'+(state.stFilter==='Selesai'?' selected':'')+'>Selesai</option>'
+    + '<option value="Menunggu Approval"'+(state.stFilter==='Menunggu Approval'?' selected':'')+'>Menunggu Approval</option>'
+    + '<option value="Belum PO"'+(state.stFilter==='Belum PO'?' selected':'')+'>Belum PO</option>';
+
+  var arrow = function(k){ return state.sortKey===k ? (state.sortDir===1?' ▲':' ▼') : ''; };
+
+  var trs = rows.map(function(r){
+    var ac = agingClass(r);
+    var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
+    var items = '<ul class="cellitems">'+r.items.map(function(it){ return '<li>'+esc(it)+'</li>'; }).join('')+'</ul>';
+    return '<tr class="'+cls+'">'
+      + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+      + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
+      + '<td class="mono">'+(r.po?esc(r.po):'—')+'</td>'
+      + '<td>'+items+'</td>'
+      + '<td>'+apprBadge(r.a1, r.appr1)+'</td>'
+      + '<td>'+apprBadge(r.a2, r.appr2)+'</td>'
+      + '<td>'+statusBadge(r)+'</td>'
+      + '<td>'+agingBadge(r)+'</td>'
+      + '<td>'+esc(r.keperluan)+'</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar">'
+    + '<div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="qInput" placeholder="Cari: PR, PO, barang, divisi…" value="'+esc(state.q)+'"></div>'
+    + '<select class="select" id="divSel">'+divOpts+'</select>'
+    + '<select class="select" id="stSel">'+stOpts+'</select>'
+    + '<span class="count-pill">'+nf(rows.length)+' / '+nf(ROWS.length)+' baris</span>'
+    + '</div>'
+    + '<div class="tablewrap"><table>'
+    + '<thead><tr>'
+    + '<th class="sortable" data-k="tgl">Tanggal'+arrow('tgl')+'</th>'
+    + '<th class="sortable" data-k="divisi">Divisi'+arrow('divisi')+'</th>'
+    + '<th class="sortable" data-k="pr">Nomor PR'+arrow('pr')+'</th>'
+    + '<th class="sortable" data-k="po">Nomor PO'+arrow('po')+'</th>'
+    + '<th>Jenis Order (Barang)</th>'
+    + '<th>Approval 1</th><th>Approval 2</th>'
+    + '<th class="sortable" data-k="status">Status'+arrow('status')+'</th>'
+    + '<th class="sortable" data-k="age">Umur'+arrow('age')+'</th>'
+    + '<th>Keperluan</th>'
+    + '</tr></thead><tbody>'+(trs||'<tr><td colspan="10"><div class="empty">Tidak ada data cocok</div></td></tr>')+'</tbody></table></div>'
+    + '</section>';
+}
+
+/* ============ RENDER SHELL ============ */
+function renderNav(){
+  var nav = document.getElementById('tabsNav');
+  nav.innerHTML = TABS.map(function(t){
+    return '<button class="tab'+(state.tab===t.id?' active':'')+'" data-tab="'+t.id+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+t.icon+'</svg>'+t.label+'</button>';
+  }).join('');
+}
+
+function render(){
+  _dlist = null;
+  renderNav();
+  var main = document.getElementById('main');
+  var html = '';
+  switch(state.tab){
+    case 'jenis': html = renderJenis(); break;
+    case 'divisi': html = renderDivisi(); break;
+    case 'status': html = renderStatus(); break;
+    case 'aging': html = renderAging(); break;
+    case 'tabel': html = renderTable(); break;
+    default: html = renderOverview();
+  }
+  main.innerHTML = html;
+  bindSection();
+}
+
+/* ============ EVENTS ============ */
+function bindSection(){
+  var nav = document.getElementById('tabsNav');
+  Array.prototype.forEach.call(nav.querySelectorAll('.tab'), function(el){
+    el.addEventListener('click', function(){
+      state.tab = el.getAttribute('data-tab');
+      render();
+    });
+  });
+
+  document.querySelectorAll('.divi-card').forEach(function(el){
+    el.addEventListener('click', function(){
+      state.divFilter = el.getAttribute('data-d');
+      state.tab = 'tabel';
+      render();
+      toast('Filter divisi: '+state.divFilter);
+    });
+  });
+
+  var q = document.getElementById('qInput');
+  if(q){ q.addEventListener('input', function(){ state.q=q.value; renderTableOnly(); }); }
+  var ds = document.getElementById('divSel');
+  if(ds){ ds.addEventListener('change', function(){ state.divFilter=ds.value; renderTableOnly(); }); }
+  var ss = document.getElementById('stSel');
+  if(ss){ ss.addEventListener('change', function(){ state.stFilter=ss.value; renderTableOnly(); }); }
+
+  var ths = document.querySelectorAll('th.sortable');
+  ths.forEach(function(th){
+    th.addEventListener('click', function(){
+      var k = th.getAttribute('data-k');
+      if(state.sortKey===k) state.sortDir = -state.sortDir;
+      else { state.sortKey=k; state.sortDir = k==='age'||k==='tgl' ? -1 : 1; }
+      renderTableOnly();
+    });
+  });
+
+  var wr = document.getElementById('warnRange');
+  if(wr){
+    wr.addEventListener('input', function(){
+      state.warnTh = +wr.value;
+      var c = document.getElementById('critRange');
+      if(state.warnTh > state.critTh){ state.critTh = state.warnTh; c.value = state.critTh; }
+      document.getElementById('warnRangeLbl').textContent = '≥ '+state.warnTh+' hari';
+      document.getElementById('critRangeLbl').textContent = '≥ '+state.critTh+' hari';
+      render();
+    });
+  }
+  var cr = document.getElementById('critRange');
+  if(cr){
+    cr.addEventListener('input', function(){
+      state.critTh = +cr.value;
+      var w = document.getElementById('warnRange');
+      if(state.critTh < state.warnTh){ state.warnTh = state.critTh; w.value = state.warnTh; }
+      document.getElementById('warnRangeLbl').textContent = '≥ '+state.warnTh+' hari';
+      document.getElementById('critRangeLbl').textContent = '≥ '+state.critTh+' hari';
+      render();
+    });
+  }
+}
+
+function renderTableOnly(){
+  var main = document.getElementById('main');
+  if(state.tab==='tabel'){
+    var q = document.getElementById('qInput') ? document.getElementById('qInput').value : state.q;
+    state.q = q;
+    main.innerHTML = renderTable();
+    bindSection();
+    /* fokus kembali ke input */
+    var qi = document.getElementById('qInput');
+    if(qi){ qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+  }
+}
+
+/* ============ EXPORT ============ */
+function exportCSV(){
+  var rows = state.exportRows && state.exportRows.length ? state.exportRows : ROWS;
+  var head = ['Tanggal','Divisi','Nomor PR','Nomor PO','Jenis Order','Approval 1','Approval 2','Status','Umur (hari)','Keterangan','Keperluan Order'];
+  var lines = [head.join(',')];
+  rows.forEach(function(r){
+    var cells = [r.tgl, r.divisi, r.pr, r.po, r.jenis.replace(/\n+/g,'; '), r.a1, r.a2, r.status, r.age==null?'':r.age, r.ket, r.keperluan];
+    lines.push(cells.map(function(c){
+      c = String(c==null?'':c);
+      return '"'+c.replace(/"/g,'""')+'"';
+    }).join(','));
+  });
+  var blob = new Blob(["\uFEFF"+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'order-pr-po-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast('CSV diekspor ('+rows.length+' baris)');
+}
+
+/* ============ INIT ============ */
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('autoSync').addEventListener('change', function(e){
+  if(e.target.checked){
+    AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
+    toast('Auto-sync aktif (tiap 5 menit)');
+  } else {
+    clearInterval(AUTO_TIMER); AUTO_TIMER = null;
+    toast('Auto-sync nonaktif');
+  }
+});
+
+/* init dengan snapshot dulu agar cepat tampil */
+setRows(loadFromSnapshot(), false, null);
+refresh(); /* lalu coba live */
+
+})();
+</script>
+</body>
+</html>

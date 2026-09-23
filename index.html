@@ -3,8 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitor Order PR &amp; PO — Purchase Dashboard</title>
-<style>
+  <title>Monitor Order PR &amp; PO — Purchase Dashboard</title>
+  <meta name="description" content="Dashboard monitor order bahan & spareparts: status PR/PO, approval, dan peringatan aging order. Auto-sync dari Google Sheets.">
+  <meta name="theme-color" content="#4f46e5">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Order PR/PO">
+
+  <!-- Favicon & icons -->
+  <link rel="icon" href="icons/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="mask-icon" href="icons/icon.svg" color="#4f46e5">
+
+  <!-- Windows tile -->
+  <meta name="msapplication-TileColor" content="#4f46e5">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png">
+  <meta name="msapplication-config" content="browserconfig.xml">
+  <style>
 :root{
   --bg:#f4f5f7;
   --card:#ffffff;
@@ -214,7 +237,7 @@ input[type=range]{accent-color:var(--accent);width:180px}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5V3h6v1.5"/><path d="M8 4h8a1.5 1.5 0 0 1 1.5 1.5V20a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 20V5.5A1.5 1.5 0 0 1 8 4z"/><path d="M9.2 12.2l1.9 1.9 3.7-4"/></svg>
       </div>
       <div>
         <h1>Monitor Order PR &amp; PO</h1>
@@ -229,6 +252,10 @@ input[type=range]{accent-color:var(--accent);width:180px}
       <button class="btn" id="refreshBtn" title="Ambil data terbaru dari spreadsheet">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         Refresh
+      </button>
+      <button class="btn" id="installBtn" style="display:none" title="Pasang dashboard ini sebagai aplikasi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+        Install App
       </button>
       <button class="btn primary" id="exportBtn" title="Export data terfilter ke CSV">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
@@ -262,6 +289,10 @@ var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
 var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[] };
+(function(){
+  var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
+  if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
+})();
 
 var TABS = [
   {id:'overview', label:'Overview', icon:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'},
@@ -993,6 +1024,31 @@ function exportCSV(){
 /* ============ INIT ============ */
 document.getElementById('refreshBtn').addEventListener('click', refresh);
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+/* --- PWA: tombol install & service worker --- */
+var deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredPrompt = e;
+  var b = document.getElementById('installBtn');
+  b.style.display = 'inline-flex';
+  b.addEventListener('click', function(){
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function(){ deferredPrompt = null; b.style.display = 'none'; });
+  });
+});
+window.addEventListener('appinstalled', function(){
+  deferredPrompt = null;
+  document.getElementById('installBtn').style.display = 'none';
+  toast('Dashboard terpasang sebagai aplikasi');
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){ /* SW opsional */ });
+  });
+}
+
 document.getElementById('autoSync').addEventListener('change', function(e){
   if(e.target.checked){
     AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);

@@ -31,6 +31,17 @@ Sheet ID spreadsheet: `1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc` (sheet **"R
 ### Giru lokal / preview
 Cukup buka file `index.html` di browser. Jika di environment preview tanpa jaringan, dashboard menampilkan snapshot offline.
 
+## PWA (Progressive Web App)
+
+Dashboard sudah dilengkapi PWA lengkap — bisa dipasang (install) di HP/desktop seperti aplikasi native:
+
+- `manifest.webmanifest` — metadata + ikon + **App Shortcuts** (Aging Order, Status & Approval).
+- `icons/` — set ikon lengkap: `android-chrome-192/512`, `icon-512` + `icon-512-maskable` (maskable utk Android), `apple-touch-icon` (iOS), `favicon.ico` + PNG, `icon.svg`, `mstile-150x150` (Windows tile).
+- `browserconfig.xml` — konfigurasi tile Windows.
+- `sw.js` — service worker (cache app shell *stale-while-revalidate*; data spreadsheet selalu diambil live, tidak di-cache).
+
+> Saat dibuka via GitHub Pages (HTTPS), tombol **"Install App"** muncul otomatis di header (atau menu browser → Add to Home Screen).
+
 ## Mengubah ID sheet
 
 Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.

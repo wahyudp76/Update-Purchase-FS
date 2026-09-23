@@ -1,5 +1,5 @@
 /* Service Worker — Purchase Dashboard (stale-while-revalidate) */
-const CACHE = 'pfs-v2';
+const CACHE = 'pfs-v3';
 const ASSETS = [
   './',
   './index.html',

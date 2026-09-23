@@ -273,8 +273,20 @@ input[type=range]{accent-color:var(--accent);width:180px}
 (function(){
 'use strict';
 /* ============ CONFIG ============ */
-var SHEET_ID = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
-var SHEET_NAME = 'Response';
+/* Bisa di-override via URL: ?sheetId=ID_FILE&sheet=NamaSheet (untuk tes cepat) */
+var CFG = (function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    return {
+      id: (p.get('sheetId') || p.get('sid') || '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc'),
+      sheet: (p.get('sheet') || 'Response')
+    };
+  } catch(e) {
+    return { id:'1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc', sheet:'Response' };
+  }
+})();
+var SHEET_ID = CFG.id;
+var SHEET_NAME = CFG.sheet;
 var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(SHEET_NAME);
 
 /* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu */
@@ -1060,6 +1072,8 @@ document.getElementById('autoSync').addEventListener('change', function(e){
 });
 
 /* init dengan snapshot dulu agar cepat tampil */
+var _subEl = document.querySelector('.brand .sub');
+if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '" · Auto-sync';
 setRows(loadFromSnapshot(), false, null);
 refresh(); /* lalu coba live */
 

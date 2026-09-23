@@ -279,21 +279,34 @@ var CFG = (function(){
     var p = new URLSearchParams(location.search);
     return {
       id: (p.get('sheetId') || p.get('sid') || '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc'),
-      sheet: (p.get('sheet') || 'Response')
+      sheet: (p.get('sheet') || 'Response'),
+      gid: p.get('gid')
     };
   } catch(e) {
-    return { id:'1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc', sheet:'Response' };
+    return { id:'1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc', sheet:'Response', gid:null };
   }
 })();
 var SHEET_ID = CFG.id;
 var SHEET_NAME = CFG.sheet;
-var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(SHEET_NAME);
+var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json'
+  + (CFG.gid ? ('&gid=' + encodeURIComponent(CFG.gid)) : ('&sheet=' + encodeURIComponent(SHEET_NAME)));
 
 /* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu */
 var SNAPSHOT = [
   ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","11290820","40005620","OK","Belum","Untuk keperluan tenaga kerja irigasi","Kantor"],
   ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","10210111","4002041","OK","Belum","Untuk cuci steam mesin irigasi",""]
 ];
+
+/* Dedupe: buang baris yang isinya 100% sama (duplikat dari form/import) */
+function dedupeRows(rows){
+  var seen = {};
+  return (rows || []).filter(function(r){
+    var sig = [r.ts, r.tgl, r.divisi, r.pr, r.po, r.a1, r.a2, r.ket, r.jenis, r.keperluan].join('\u0001');
+    if(seen[sig]) return false;
+    seen[sig] = true;
+    return true;
+  });
+}
 
 /* ============ STATE ============ */
 var ROWS = [];
@@ -428,8 +441,12 @@ function loadLive(){
   });
 }
 
+var DUPDROP = 0;
 function setRows(rows, live, err){
-  ROWS = rows || [];
+  var all = rows || [];
+  var clean = dedupeRows(all);
+  DUPDROP = all.length - clean.length;
+  ROWS = clean;
   LIVE = !!(live && !err);
   LAST_SYNC = new Date();
   updateSyncPill(err);
@@ -445,8 +462,8 @@ function updateSyncPill(err){
     txt.title = 'Gagal ambil data live: ' + err + '. Menampilkan snapshot offline.';
   } else if(LIVE){
     dot.className = 'dot on';
-    txt.textContent = 'Tersinkron · ' + timeStr(LAST_SYNC);
-    txt.title = 'Terhubung ke spreadsheet. Terakhir sync: ' + LAST_SYNC.toLocaleString('id-ID');
+    txt.textContent = 'Tersinkron · ' + timeStr(LAST_SYNC) + (DUPDROP>0 ? ' · '+DUPDROP+' duplikat diabaikan' : '');
+    txt.title = 'Terhubung ke spreadsheet. Terakhir sync: ' + LAST_SYNC.toLocaleString('id-ID') + '. ' + ROWS.length + ' baris unik ditampilkan' + (DUPDROP>0 ? ' (' + DUPDROP + ' baris duplikat diabaikan).' : '.');
   } else {
     dot.className = 'dot off';
     txt.textContent = 'Offline (snapshot)';
@@ -463,7 +480,7 @@ async function refresh(){
   try{
     var rows = await loadLive();
     setRows(rows, true, null);
-    toast('Data berhasil disinkronkan ('+rows.length+' baris)');
+    toast('Data tersinkron ('+ROWS.length+' baris'+(DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'')+')');
   }catch(e){
     setRows(loadFromSnapshot(), false, String(e && e.message || e));
     toast('Gagal sinkron — menampilkan snapshot offline');

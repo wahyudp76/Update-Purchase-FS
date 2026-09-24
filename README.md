@@ -42,6 +42,24 @@ Dashboard sudah dilengkapi PWA lengkap — bisa dipasang (install) di HP/desktop
 
 > Saat dibuka via GitHub Pages (HTTPS), tombol **"Install App"** muncul otomatis di header (atau menu browser → Add to Home Screen).
 
+## Tambah / Edit / Hapus order (tulis balik ke spreadsheet)
+
+Dashboard bisa menulis balik ke spreadsheet:
+
+- Tombol **"Tambah"** (header) → form tambah order, ditulis langsung ke baris baru sheet.
+- Tombol **✏️ / 🗑️** (kolom Aksi di Tabel Detail & Aging) → edit / hapus baris.
+
+**Cara kerja sinkronisasi tulis:**
+1. Semua aksi ditulis ke **sheet yang sama** (default "Response").
+2. Untuk menulis, browser memakai **Google OAuth2** (scope `spreadsheets`). Saat pertama kali Simpan, akan muncul popup setuju/izin dari Google.
+
+**Prasyarat agar "tulis" berhasil:**
+- Spreadsheet dibagikan sebagai **Editor** bagi akun Google yang login (Share → Anyone with the link → Editor, atau undang email).
+- `client_id` pada variabel `AUTH_KEYS` di `index.html` sudah diganti dengan **Client ID Anda sendiri** (Google Cloud Console → OAuth). Tanpa ini, popup izin tampil "aplikasi belum diverifikasi" dan hanya boleh untuk akun tester; alternatifnya isi **token** manual (lihat bawah).
+- Agar tidak terkunci "untuk pengembang", tambahkan **Authorized JavaScript origins** (`https://wahyudp76.github.io`) dan akun tester di konsol.
+
+**Penting — batasan One Tap:** karena `start_url` / `scope` = `./`, saat diklik langsung **dari tempat yang sama persis** (misal klik tombol di jendela aktif), OAuth One Tap biasanya berjalan normal. Jika gagal, tempelkan **access token** sementara (dari OAuth Playground) di kolom "Token akses" pada form — ini fallback yang dijamin jalan.
+
 ## Mengubah ID sheet
 
 Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.

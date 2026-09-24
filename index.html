@@ -223,6 +223,19 @@ input[type=range]{accent-color:var(--accent);width:180px}
   opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 12px 30px -10px rgba(0,0,0,.4);
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.banner{
+  display:flex;align-items:center;gap:10px;margin:0 22px 12px;padding:11px 14px;
+  border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;
+  font-size:13px;font-weight:600;
+}
+.banner .b-msg{flex:1}
+.banner a{color:#b91c1c;text-decoration:underline}
+.banner button{
+  border:none;background:none;color:#b91c1c;font-size:17px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:6px;
+}
+.banner button:hover{background:#fee2e2}
+@media(max-width:640px){.banner{margin:0 14px 10px}}
+
 @media(max-width:640px){
   .header-inner{padding:12px 14px}
   main{padding:14px}
@@ -266,8 +279,13 @@ input[type=range]{accent-color:var(--accent);width:180px}
   <nav class="tabs" id="tabsNav"></nav>
 </header>
 
-<main id="main"></main>
-<div class="toast" id="toast"></div>
+  <div class="banner" id="syncBanner" style="display:none">
+    <span>⚠</span>
+    <span class="b-msg" id="syncBannerMsg"></span>
+    <button id="syncBannerClose" title="Tutup">×</button>
+  </div>
+  <main id="main"></main>
+  <div class="toast" id="toast"></div>
 
 <script>
 (function(){
@@ -293,8 +311,8 @@ var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx
 
 /* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu */
 var SNAPSHOT = [
-  ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","11290820","40005620","OK","Belum","Untuk keperluan tenaga kerja irigasi","Kantor"],
-  ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","10210111","4002041","OK","Belum","Untuk cuci steam mesin irigasi",""]
+  ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","1300203795","","Belum","Belum","Untuk keperluan tenaga kerja irigasi","Kantor"],
+  ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","1300203795","","Belum","Belum","Untuk cuci steam mesin irigasi","Kantor"]
 ];
 
 /* Dedupe: buang baris yang isinya 100% sama (duplikat dari form/import) */
@@ -313,6 +331,7 @@ var ROWS = [];
 var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
+var SYNC_ERROR = null;
 var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[] };
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
@@ -415,8 +434,9 @@ function loadFromSnapshot(){
   });
 }
 
-function loadLive(){
-  return fetch(GVURL, {cache:'no-store'}).then(function(res){
+function loadLive(urlOverride){
+  var url = urlOverride || GVURL;
+  return fetch(url, {cache:'no-store'}).then(function(res){
     if(!res.ok) throw new Error('HTTP '+res.status);
     return res.text();
   }).then(function(text){
@@ -453,6 +473,7 @@ function setRows(rows, live, err){
   LIVE = !!(live && !err);
   LAST_SYNC = new Date();
   updateSyncPill(err);
+  if(!err && live && typeof hideSyncBanner === 'function') hideSyncBanner();
   render();
 }
 
@@ -461,8 +482,8 @@ function updateSyncPill(err){
   var txt = document.getElementById('syncText');
   if(err){
     dot.className = 'dot off';
-    txt.textContent = 'Offline (snapshot)';
-    txt.title = 'Gagal ambil data live: ' + err + '. Menampilkan snapshot offline.';
+    txt.textContent = 'Gagal sync';
+    txt.title = 'Gagal: ' + err + ' — menampilkan snapshot offline. Pastikan spreadsheet masih dibagikan (Share → Anyone with the link → Viewer).';
   } else if(LIVE){
     dot.className = 'dot on';
     txt.textContent = 'Tersinkron · ' + timeStr(LAST_SYNC) + (DUPDROP>0 ? ' · '+DUPDROP+' duplikat diabaikan' : '');
@@ -481,12 +502,19 @@ async function refresh(){
   var txt = document.getElementById('syncText'); txt.textContent='Memuat…';
   btn.disabled = true;
   try{
-    var rows = await loadLive();
+    /* cache-bust: params unik tiap request agar hasil selalu segar */
+    var url = GVURL + '&_cb=' + Date.now();
+    var rows = await loadLive(url);
+    SYNC_ERROR = null;
     setRows(rows, true, null);
-    toast('Data tersinkron ('+ROWS.length+' baris'+(DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'')+')');
+    toast('Sinkron sukses · '+ROWS.length+' baris'+ (DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'') +' · '+timeStr(LAST_SYNC));
   }catch(e){
-    setRows(loadFromSnapshot(), false, String(e && e.message || e));
-    toast('Gagal sinkron — menampilkan snapshot offline');
+    SYNC_ERROR = String(e && e.message || e);
+    setRows(loadFromSnapshot(), false, SYNC_ERROR);
+    toast('Gagal sinkron: '+SYNC_ERROR);
+    showSyncBanner('Sinkron gagal: <b>'+esc(SYNC_ERROR)+'</b>. Dashboard menampilkan snapshot offline. Pastikan spreadsheet masih dibagikan — Share → "Anyone with the link" → Viewer. <a href="javascript:void(0)" id="retryLink">Coba lagi</a>.');
+    var rl = document.getElementById('retryLink');
+    if(rl) rl.addEventListener('click', function(){ hideSyncBanner(); refresh(); });
   }finally{
     btn.disabled = false;
   }
@@ -496,6 +524,18 @@ function toast(msg){
   var t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+function showSyncBanner(msg){
+  var b = document.getElementById('syncBanner');
+  var m = document.getElementById('syncBannerMsg');
+  if(!b || !m) return;
+  m.innerHTML = msg;
+  b.style.display = 'flex';
+}
+function hideSyncBanner(){
+  var b = document.getElementById('syncBanner');
+  if(b) b.style.display = 'none';
 }
 
 /* ============ DERIVED ============ */
@@ -1056,6 +1096,7 @@ function exportCSV(){
 /* ============ INIT ============ */
 document.getElementById('refreshBtn').addEventListener('click', refresh);
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('syncBannerClose').addEventListener('click', hideSyncBanner);
 
 /* --- PWA: tombol install & service worker --- */
 var deferredPrompt = null;
@@ -1082,11 +1123,11 @@ if('serviceWorker' in navigator){
 }
 
 document.getElementById('autoSync').addEventListener('change', function(e){
+  clearInterval(AUTO_TIMER); AUTO_TIMER = null;
   if(e.target.checked){
     AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
     toast('Auto-sync aktif (tiap 5 menit)');
   } else {
-    clearInterval(AUTO_TIMER); AUTO_TIMER = null;
     toast('Auto-sync nonaktif');
   }
 });
@@ -1095,7 +1136,19 @@ document.getElementById('autoSync').addEventListener('change', function(e){
 var _subEl = document.querySelector('.brand .sub');
 if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '" · Auto-sync';
 setRows(loadFromSnapshot(), false, null);
-refresh(); /* lalu coba live */
+/* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
+if(document.getElementById('autoSync').checked){
+  AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
+}
+refresh(); /* lalu coba live segera */
+
+/* update service worker jika versi baru tersedia */
+if('serviceWorker' in navigator && navigator.serviceWorker.controller){
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    /* versi baru aktif -> reload agar frame html terbaru */
+    if(!location.hash) location.reload();
+  });
+}
 
 })();
 </script>

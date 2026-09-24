@@ -368,8 +368,11 @@ function monthLabel(k){
 
 /* ============ NORMALIZE ============ */
 function normalize(raw){
+  /* lookup case-insensitive: kunci kolom dari gviz memakai huruf kapital (mis. "Nomor PR") */
+  var map = {};
+  Object.keys(raw || {}).forEach(function(k){ map[String(k).toLowerCase()] = raw[k]; });
   var get = function(label){
-    var v = raw[label.toLowerCase()];
+    var v = map[String(label).toLowerCase()];
     return (v==null || v==='') ? '' : String(v).trim();
   };
   var ts = get('Timestamp');

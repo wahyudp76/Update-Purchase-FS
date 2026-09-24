@@ -62,9 +62,7 @@ Dashboard bisa menulis balik ke spreadsheet:
    - *Execute as*: **Me** (akun yang jadi Editor spreadsheet)
    - *Who has access*: **Anyone**
 3. Salin URL **Web app** (`https://script.google.com/macros/s/XXXX/exec`).
-4. Set URL di dashboard — pilih salah satu:
-   - Edit `SCRIPT_URL` di `index.html`, **atau**
-   - Buka dashboard dengan param: `?scriptUrl=https://script.google.com/macros/s/XXXX/exec`
+4. Set URL di dashboard — **sudah di-set default** di `index.html` (`DEFAULT_SCRIPT_URL`); bila ganti deployment/akun cukup override lewat param `?scriptUrl=...`.
 5. Pastikan akun pemilik script adalah **Editor** spreadsheet target.
 
 > Keamanan sederhana: isi konstanta `SECRET` di `Code.gs`, lalu kirim `secret` tambahan dari dashboard (`callScript`) bila perlu. Tanpa `SECRET`, siapa pun yang tahu URL web app bisa menulis — simpan URL hanya di `index.html` Anda.

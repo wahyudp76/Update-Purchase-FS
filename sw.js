@@ -3,7 +3,7 @@
    - index.html & sw.js & browserconfig.xml : selalu network-first (biar update kode langsung tampil)
    - aset statis (ikon/manifest)            : cache-first (cepat & aman)
    - data Google Sheets (cross-origin)      : tidak pernah di-cache (selalu network) */
-const CACHE = 'pfs-v6';
+const CACHE = 'pfs-v7';
 const STATIC = [
   './manifest.webmanifest',
   './browserconfig.xml',

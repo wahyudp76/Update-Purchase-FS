@@ -266,7 +266,7 @@ input[type=range]{accent-color:var(--accent);width:180px}
 .btn-sm.danger{background:var(--crit);color:#fff}
 .btn-sm.danger:hover{background:#dc2626}
 .btn-sm:disabled{opacity:.55;cursor:not-allowed}
-.modal-body.hide-fields > *:not(#modalNote):not(#fTokenWrap){display:none}
+.modal-body.hide-fields > *:not(#modalNote){display:none}
 
 
 @media(max-width:640px){
@@ -331,11 +331,6 @@ input[type=range]{accent-color:var(--accent);width:180px}
       </div>
       <div class="modal-body" id="modalBody">
         <div class="f-note" id="modalNote" style="display:none"></div>
-        <div class="f-note" id="fTokenWrap" style="display:none">
-          <label class="f-label">Token akses (opsional)</label>
-          <input class="f-input" id="fToken" placeholder="Tempel token Google dengan scope spreadsheet di sini bila tidak pakai OAuth">
-          <div style="margin-top:6px;font-weight:400">Gunakan token sementara dari OAuth Playground / Apps Script bila Client ID belum diset.</div>
-        </div>
         <div class="f-row">
           <div><label class="f-label">Divisi</label><input class="f-input" id="fDivisi" placeholder="cth: OP2"></div>
           <div><label class="f-label">Tanggal (dd/mm/yyyy)</label><input class="f-input" id="fTgl" placeholder="23/09/2026"></div>
@@ -518,7 +513,7 @@ function loadLive(urlOverride){
     var data = JSON.parse(text.slice(start, end+1));
     if(data.status !== 'ok') throw new Error('status '+data.status);
     var cols = data.table.cols.map(function(c){ return c.label; });
-    return data.table.rows.map(function(r){
+    return data.table.rows.map(function(r, ri){
       var o = {};
       r.c.forEach(function(cell, i){
         var v = '';
@@ -529,6 +524,8 @@ function loadLive(urlOverride){
         }
         o[cols[i]] = v;
       });
+      /* nomor baris sheet (1-based) untuk identitas aksi edit/hapus */
+      o['No Row ID'] = String(ri + 2);
       return o;
     });
   }).then(function(rawRows){
@@ -623,199 +620,34 @@ function hideSyncBanner(){
   if(b) b.style.display = 'none';
 }
 
-/* ============ WRITE-BACK (add / edit / delete -> spreadsheet) ============ */
-var G_TOKEN = null;
-var AUTH_KEYS = {
-  client_id:'1031844127831-qnavrf7m4v8ims0aslsoueo6b5is6fv8.apps.googleusercontent.com',
-  api_key:'AIzaSyB01DoTUwvSBkk9fKKejE5tiuQnCJ5NM9w'
-};
+/* ============ WRITE-BACK via Google Apps Script ============ */
+/* URL web app Apps Script. Set lewat konstanta di bawah ATAU param URL:
+   ?scriptUrl=https://script.google.com/macros/s/XXXX/exec */
+var SCRIPT_URL = (function(){
+  try{ return new URLSearchParams(location.search).get('scriptUrl') || ''; }catch(e){ return ''; }
+})();
 
-function loadGapi(){
-  if(window.__gapiLoaded) return;
-  var s = document.createElement('script');
-  s.src = 'https://apis.google.com/js/api.js';
-  s.onload = function(){
-    window.__gapiLoaded = true;
-    try{
-      gapi.load('auth2', function(){
-        try{
-          gapi.auth2.init({
-            client_id: AUTH_KEYS.client_id,
-            scope: 'https://www.googleapis.com/auth/spreadsheets'
-          }).then(function(){ /* siap */ }).catch(function(){ /* offline / konfigurasi belum set */ });
-        }catch(e){}
-      });
-    }catch(e){}
-  };
-  s.onerror = function(){ console.warn('gapi gagal dimuat (offline)'); };
-  document.head.appendChild(s);
+function scriptConfigured(){ return !!SCRIPT_URL; }
+function scriptHint(){
+  return 'URL Apps Script belum diset. Lihat cara deploy di README, lalu isi variabel SCRIPT_URL '
+    + 'di index.html ATAU buka dashboard dengan param ?scriptUrl=https://script.google.com/macros/s/.../exec';
 }
 
-function gapiFailed(){
-  if(!window.gapi || !gapi.auth2) throw new Error('OAuth belum siap — coba lagi, atau tempel token pada kolom Token.');
-}
-
-async function ensureToken(){
-  if(G_TOKEN) return G_TOKEN;
-  var t = document.getElementById('fToken').value.trim();
-  if(t){ G_TOKEN = t; return t; }
-  gapiFailed();
-  var auth = await gapi.auth2.getAuthInstance();
-  var u = auth.currentUser.get();
-  if(u && u.hasGrantedScopes('https://www.googleapis.com/auth/spreadsheets')){
-    var res = u.getAuthResponse(true);
-    G_TOKEN = res.access_token;
-    return G_TOKEN;
+function callScript(action, rowId, values){
+  if(!SCRIPT_URL){
+    return Promise.reject(new Error(scriptHint()));
   }
-  throw new Error('Izin ditolak — belum bisa menulis ke spreadsheet');
-}
-
-function apiFetch(u, opts){
-  return fetch(u, opts).then(function(r){
-    return r.json().then(function(j){
-      if(!r.ok || j.error){
-        var msg = '';
-        if(j && j.error){
-          if(typeof j.error === 'string') msg = j.error;
-          else if(j.error.message) msg = j.error.message;
-          else msg = JSON.stringify(j.error).slice(0,200);
-        }
-        throw new Error(msg || ('HTTP '+r.status));
-      }
-      return j;
-    });
+  return fetch(SCRIPT_URL, {
+    method:'POST',
+    /* text/plain wajib: membuat request jadi "simple request" (tanpa preflight CORS) */
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ sheetId: SHEET_ID, sheetName: SHEET_NAME, action: action, rowId: rowId, values: values || {} })
+  }).then(function(r){ return r.text(); }).then(function(t){
+    var j = null;
+    try{ j = JSON.parse(t); }catch(e){ throw new Error('Respons bukan JSON: ' + String(t).slice(0,140)); }
+    if(j && j.ok) return j;
+    throw new Error((j && j.error) ? j.error : 'Gagal (tanpa pesan dari server)');
   });
-}
-
-async function sheetMeta(){
-  var t = await ensureToken();
-  return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'?fields=sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))', { headers:{ Authorization:'Bearer '+t } });
-}
-
-function findSheet(meta, prefer){
-  var ss = meta.sheets || [];
-  var pick = null;
-  ss.forEach(function(s){ if(s.properties && s.properties.title === prefer) pick = s; });
-  if(!pick && ss.length) pick = ss[0];
-  if(!pick) throw new Error('Tidak ada sheet di spreadsheet');
-  return pick;
-}
-
-async function readSheet(){
-  var t = await ensureToken();
-  var meta = await sheetMeta();
-  var sh = findSheet(meta, SHEET_NAME);
-  var grid = sh.properties.gridProperties || {};
-  var last = (grid.rowCount && grid.rowCount > 1) ? grid.rowCount : 500;
-  var range = encodeURIComponent(sh.properties.title) + '!A1:J' + last;
-  var j = await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/'+range, { headers:{ Authorization:'Bearer '+t } });
-  var vals = j.values || [];
-  if(!vals.length) throw new Error('Sheet kosong');
-  var headers = vals[0] || [];
-  var rows = [];
-  for(var i=1;i<vals.length;i++){
-    var row = vals[i] || [];
-    var o = {};
-    headers.forEach(function(h, c){ var hn = String(h==null?'':h).trim(); if(hn!=='') o[hn] = (c < row.length ? String(row[c]==null?'':row[c]) : ''); });
-    if(Object.keys(o).some(function(k){ return String(o[k]).trim() !== ''; })){
-      o['No Row ID'] = String(i+1);
-      rows.push(o);
-    }
-  }
-  return { title: sh.properties.title, headers: headers, rows: rows, sheetId: sh.properties.sheetId };
-}
-
-function findRowById(all, id){
-  var idx = -1;
-  all.rows.some(function(r, i){
-    if(String(r['No Row ID']) === String(id)){ idx = i; return true; }
-    return false;
-  });
-  return idx;
-}
-
-/* baris kosong berikutnya (0-based) untuk append — aman walau ada baris terhapus di tengah */
-function firstEmptyRow(all){
-  var max = 0;
-  all.rows.forEach(function(r){
-    var n = parseInt(r['No Row ID'], 10);
-    if(!isNaN(n) && n > max) max = n;
-  });
-  if(max === 0) return 1; /* hanya header -> baris data pertama (0-based idx 1) */
-  return max; /* No Row ID 1-based == 0-based index baris kosong berikutnya */
-}
-
-async function applyMutations(all, row, mode){
-  var t = await ensureToken();
-  var iconsheet = all.sheetId;
-  var requests = [];
-
-  if(mode === 'add'){
-    var start = firstEmptyRow(all); /* 0-based sheet row index baris kosong */
-    var rv = row.vals;
-    all.headers.forEach(function(h, c){
-      var v = (rv && rv[h] != null) ? String(rv[h]) : '';
-      var isNum = /^\d+(\.\d+)?$/.test(v) && h !== 'Tanggal Input Reservasi';
-      requests.push({
-        updateCells:{
-          rows:[{ values:[{ userEnteredValue: isNum ? { numberValue: Number(v) } : { stringValue: v } }] }],
-          fields:'userEnteredValue',
-          range:{ sheetId: iconsheet, startRowIndex: start, endRowIndex: start+1, startColumnIndex: c, endColumnIndex: c+1 }
-        }
-      });
-    });
-  } else if(mode === 'edit'){
-    var eStart = row.rowIndex; // sudah offset (>=1)
-    var rv = row.vals;
-    all.headers.forEach(function(h, c){
-      var v = (rv && rv[h] != null) ? String(rv[h]) : '';
-      var isNum = /^\d+(\.\d+)?$/.test(v) && h !== 'Tanggal Input Reservasi';
-      requests.push({
-        updateCells:{
-          rows:[{ values:[{ userEnteredValue: isNum ? { numberValue: Number(v) } : { stringValue: v } }] }],
-          fields:'userEnteredValue',
-          range:{ sheetId: iconsheet, startRowIndex: eStart, endRowIndex: eStart+1, startColumnIndex: c, endColumnIndex: c+1 }
-        }
-      });
-    });
-  } else if(mode === 'delete'){
-    var dStart = row.rowIndex;
-    requests.push({
-      deleteDimension:{ range:{ sheetId: iconsheet, dimension:'ROWS', startIndex: dStart, endIndex: dStart+1 } }
-    });
-  }
-
-  if(requests.length){
-    await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+':batchUpdate', {
-      method:'POST',
-      headers:{ Authorization:'Bearer '+t, 'Content-Type':'application/json' },
-      body: JSON.stringify({ requests: requests })
-    });
-  }
-}
-
-async function updateGoogleSheet(row, mode){
-  var all = await readSheet();
-  if(mode === 'add'){
-    await applyMutations(all, { vals: row }, 'add');
-  } else {
-    var found = all.rows.some(function(r){ return String(r['No Row ID']) === String(row.rowId); });
-    if(!found) throw new Error('Baris tidak ditemukan di sheet — refresh dulu lalu coba lagi');
-    /* No Row ID = nomor baris sheet (1-based) -> 0-based sheet row index = id - 1 */
-    var offset = parseInt(row.rowId, 10) - 1;
-    if(!(offset >= 1)) throw new Error('Posisi baris tidak valid');
-    await applyMutations(all, { vals: row.vals, rowId: row.rowId, rowIndex: offset }, mode);
-  }
-}
-
-/* fallback: web-app / mirroring (bila Google API diblokir) — set URL di sini */
-function SCRIPT_WEBAPP(){ return null; }
-async function applyScriptAction(row, mode){
-  var url = SCRIPT_WEBAPP();
-  if(!url) throw new Error('Web-app mirroring belum diatur');
-  var t = ensureToken();
-  var res = await apiFetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+t }, body: JSON.stringify({ action: mode, row: row }) });
-  return res;
 }
 
 /* ============ DERIVED ============ */
@@ -1409,14 +1241,12 @@ function toggleModal(show, info){
   back.style.display = show ? 'flex' : 'none';
   if(show){
     var note = document.getElementById('modalNote');
-    var wrap = document.getElementById('fTokenWrap');
     if(info && info.note){
       note.innerHTML = info.note;
       note.style.display = 'block';
     } else {
       note.style.display = 'none';
     }
-    wrap.style.display = 'block';
   }
 }
 
@@ -1430,7 +1260,7 @@ function openAddModal(){
   var yyyy = today.getFullYear();
   var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fKet:'' };
   Object.keys(vals).forEach(function(id){ document.getElementById(id).value = vals[id]; });
-  toggleModal(true, { note: 'Order baru akan ditulis <b>langsung ke spreadsheet</b> (tab "' + SHEET_NAME + '"). Pastikan Anda sudah login Google dan memberi izin akses saat diminta, atau tempel token pada kolom di bawah.' });
+  toggleModal(true, { note: 'Order baru akan ditulis <b>langsung ke spreadsheet</b> (tab "' + SHEET_NAME + '") melalui Google Apps Script.' });
 }
 
 function openEditModal(k){
@@ -1473,7 +1303,6 @@ function resetModalForm(){
   body.classList.remove('hide-fields');
   document.getElementById('modalSave').textContent = 'Simpan';
   document.getElementById('modalSave').className = 'btn-sm prim';
-  document.getElementById('fTokenWrap').style.display = 'none';
   var note = document.getElementById('modalNote');
   note.style.display = 'none';
 }
@@ -1490,7 +1319,7 @@ function buildVals(forToken){
   v['Tanggal Input Reservasi'] = document.getElementById('fTgl').value.trim();
   v['Nomor PR'] = document.getElementById('fPr').value.trim();
   v['Nomor PO'] = document.getElementById('fPo').value.trim();
-  v['Jenis Order'] = document.getElementById('fJenis').value.replace(/^\s*-\s*/gm, '').trim();
+  v['Jenis Order'] = document.getElementById('fJenis').value.trim();
   v['Approval 1'] = document.getElementById('fA1').value.trim();
   v['Approval 2'] = document.getElementById('fA2').value.trim();
   v['Keperluan Order'] = document.getElementById('fKeperluan').value.trim();
@@ -1505,7 +1334,7 @@ async function handleSave(){
     if(!r){ toast('Baris tidak ditemukan'); return; }
     saveBtn.disabled = true; saveBtn.textContent = 'Menghapus…';
     try{
-      await updateGoogleSheet({ rowId: rowKey(r) }, 'delete');
+      await updateGoogleSheet(rowKey(r), 'delete', null);
       toast('Order dihapus dari spreadsheet');
       closeModal();
       refresh();
@@ -1522,20 +1351,28 @@ async function handleSave(){
   saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan…';
   try{
     if(isEdit){
-      await updateGoogleSheet({ rowId: MODAL_ROWKEY, vals: vals }, 'edit');
+      await updateGoogleSheet(MODAL_ROWKEY, 'edit', vals);
       toast('Order diperbarui di spreadsheet');
     } else {
-      await updateGoogleSheet({ vals: vals }, 'add');
+      await updateGoogleSheet(null, 'add', vals);
       toast('Order ditambahkan ke spreadsheet');
     }
     closeModal();
     refresh();
   }catch(e){
     var msg = e && e.message ? e.message : e;
-    var action = isEdit ? 'memperbarui' : 'menambah';
-    alert('Gagal ' + action + ': ' + msg + '\n\nPenyebab umum: (1) token belum diisi / kedaluwarsa, (2) OAuth scope spreadsheet belum diizinkan, (3) file sheet tidak dibagikan sebagai Editor bagi akun Anda.');
+    toast('Gagal: ' + msg);
+    alert('Gagal ' + (isEdit ? 'memperbarui' : 'menambah') + ': ' + msg);
     saveBtn.disabled = false; saveBtn.textContent = 'Simpan';
   }
+}
+
+/* penerjemah aksi -> Apps Script web app */
+function updateGoogleSheet(rowId, mode, values){
+  if(!scriptConfigured()){
+    return Promise.reject(new Error(scriptHint()));
+  }
+  return callScript(mode, rowId != null ? String(rowId) : null, values || {});
 }
 
 /* ============ INIT ============ */
@@ -1586,8 +1423,6 @@ document.getElementById('autoSync').addEventListener('change', function(e){
 var _subEl = document.querySelector('.brand .sub');
 if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '" · Auto-sync';
 setRows(loadFromSnapshot(), false, null);
-/* muat Google API client (untuk tulis ke spreadsheet via OAuth) — opsional, tidak memblokir render */
-try{ loadGapi(); }catch(e){}
 /* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
 if(document.getElementById('autoSync').checked){
   AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);

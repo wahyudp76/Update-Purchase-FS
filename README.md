@@ -42,23 +42,32 @@ Dashboard sudah dilengkapi PWA lengkap — bisa dipasang (install) di HP/desktop
 
 > Saat dibuka via GitHub Pages (HTTPS), tombol **"Install App"** muncul otomatis di header (atau menu browser → Add to Home Screen).
 
-## Tambah / Edit / Hapus order (tulis balik ke spreadsheet)
+## Tambah / Edit / Hapus order (tulis balik ke spreadsheet via Google Apps Script)
 
 Dashboard bisa menulis balik ke spreadsheet:
 
 - Tombol **"Tambah"** (header) → form tambah order, ditulis langsung ke baris baru sheet.
 - Tombol **✏️ / 🗑️** (kolom Aksi di Tabel Detail & Aging) → edit / hapus baris.
 
-**Cara kerja sinkronisasi tulis:**
-1. Semua aksi ditulis ke **sheet yang sama** (default "Response").
-2. Untuk menulis, browser memakai **Google OAuth2** (scope `spreadsheets`). Saat pertama kali Simpan, akan muncul popup setuju/izin dari Google.
+**Cara kerja sinkronisasi tulis (tanpa OAuth):**
 
-**Prasyarat agar "tulis" berhasil:**
-- Spreadsheet dibagikan sebagai **Editor** bagi akun Google yang login (Share → Anyone with the link → Editor, atau undang email).
-- `client_id` pada variabel `AUTH_KEYS` di `index.html` sudah diganti dengan **Client ID Anda sendiri** (Google Cloud Console → OAuth). Tanpa ini, popup izin tampil "aplikasi belum diverifikasi" dan hanya boleh untuk akun tester; alternatifnya isi **token** manual (lihat bawah).
-- Agar tidak terkunci "untuk pengembang", tambahkan **Authorized JavaScript origins** (`https://wahyudp76.github.io`) dan akun tester di konsol.
+1. Backend adalah **Google Apps Script web app** (`Code.gs` di repo ini) yang dijalankan sebagai akun pemilik script.
+2. Dashboard mengirim `POST` (Content-Type `text/plain` — agar lolos CORS tanpa preflight) ke URL web app, berisi `{ sheetId, sheetName, action, rowId, values }`.
+3. Script menulis ke sheet tujuan (add/edit/delete) dan membalas JSON `{ ok: true, ... }`.
 
-**Penting — batasan One Tap:** karena `start_url` / `scope` = `./`, saat diklik langsung **dari tempat yang sama persis** (misal klik tombol di jendela aktif), OAuth One Tap biasanya berjalan normal. Jika gagal, tempelkan **access token** sementara (dari OAuth Playground) di kolom "Token akses" pada form — ini fallback yang dijamin jalan.
+### Langkah deploy (sekali saja)
+
+1. Buka [script.google.com](https://script.google.com) → **New project**, tempel seluruh isi `Code.gs`.
+2. **Deploy → New deployment → Web app**:
+   - *Execute as*: **Me** (akun yang jadi Editor spreadsheet)
+   - *Who has access*: **Anyone**
+3. Salin URL **Web app** (`https://script.google.com/macros/s/XXXX/exec`).
+4. Set URL di dashboard — pilih salah satu:
+   - Edit `SCRIPT_URL` di `index.html`, **atau**
+   - Buka dashboard dengan param: `?scriptUrl=https://script.google.com/macros/s/XXXX/exec`
+5. Pastikan akun pemilik script adalah **Editor** spreadsheet target.
+
+> Keamanan sederhana: isi konstanta `SECRET` di `Code.gs`, lalu kirim `secret` tambahan dari dashboard (`callScript`) bila perlu. Tanpa `SECRET`, siapa pun yang tahu URL web app bisa menulis — simpan URL hanya di `index.html` Anda.
 
 ## Mengubah ID sheet
 

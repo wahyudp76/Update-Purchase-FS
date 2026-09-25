@@ -370,8 +370,8 @@ input[type=range]{accent-color:var(--accent);width:180px}
         <div><label class="f-label">Keterangan</label><input class="f-input" id="fKet" placeholder="opsional"></div>
       </div>
       <div class="modal-foot">
-        <button class="btn-sm gh" id="modalCancel">Batal</button>
-        <button class="btn-sm prim" id="modalSave">Simpan</button>
+        <button class="btn-sm gh" id="modalCancel" type="button">Batal</button>
+        <button class="btn-sm prim" id="modalSave" type="button">Simpan</button>
       </div>
     </div>
   </div>
@@ -1337,7 +1337,12 @@ function toggleModal(show, info){
 
 function openAddModal(){
   MODAL_ROWKEY = null;
-  document.getElementById('modalSave').dataset.mode = 'save';
+  var saveBtn = document.getElementById('modalSave');
+  saveBtn.dataset.mode = 'save';
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Simpan';
+  saveBtn.className = 'btn-sm prim';
+  document.getElementById('modalBody').classList.remove('hide-fields');
   document.getElementById('modalTitle').textContent = 'Tambah Order';
   var today = new Date();
   var dd = String(today.getDate()).padStart(2,'0');
@@ -1352,7 +1357,12 @@ function openEditModal(k){
   var r = findRowByKey(k);
   if(!r){ toast('Baris tidak ditemukan'); return; }
   MODAL_ROWKEY = k;
-  document.getElementById('modalSave').dataset.mode = 'save';
+  var saveBtn = document.getElementById('modalSave');
+  saveBtn.dataset.mode = 'save';
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Simpan';
+  saveBtn.className = 'btn-sm prim';
+  document.getElementById('modalBody').classList.remove('hide-fields');
   document.getElementById('modalTitle').textContent = 'Edit Order';
   document.getElementById('fDivisi').value = r.divisi === 'Tanpa Divisi' ? '' : r.divisi;
   document.getElementById('fTgl').value = r.tgl || '';
@@ -1387,24 +1397,29 @@ function confirmDelete(k){
   var r = findRowByKey(k);
   if(!r){ toast('Baris tidak ditemukan'); return; }
   MODAL_ROWKEY = k;
-  document.getElementById('modalSave').dataset.mode = 'delete';
   var back = document.getElementById('modalBack');
   var body = document.getElementById('modalBody');
+  var saveBtn = document.getElementById('modalSave');
   body.classList.add('hide-fields');
   document.getElementById('modalTitle').textContent = 'Hapus Order';
+  saveBtn.dataset.mode = 'delete';
+  saveBtn.disabled = false;
   var note = document.getElementById('modalNote');
   note.innerHTML = 'Yakin hapus baris <b>PR ' + (r.pr||'-') + ' / PO ' + (r.po||'-') + '</b> (' + r.divisi + ')? Baris akan <b>dihapus permanen</b> dari spreadsheet.';
   note.style.display = 'block';
-  document.getElementById('modalSave').textContent = 'Ya, Hapus';
-  document.getElementById('modalSave').className = 'btn-sm danger';
+  saveBtn.textContent = 'Ya, Hapus';
+  saveBtn.className = 'btn-sm danger';
   back.style.display = 'flex';
 }
 
 function resetModalForm(){
   var body = document.getElementById('modalBody');
   body.classList.remove('hide-fields');
-  document.getElementById('modalSave').textContent = 'Simpan';
-  document.getElementById('modalSave').className = 'btn-sm prim';
+  var saveBtn = document.getElementById('modalSave');
+  saveBtn.textContent = 'Simpan';
+  saveBtn.className = 'btn-sm prim';
+  saveBtn.disabled = false;            /* penting: lepas state disabled dari aksi sebelumnya */
+  saveBtn.dataset.mode = 'save';
   var note = document.getElementById('modalNote');
   note.style.display = 'none';
 }
@@ -1432,6 +1447,7 @@ function buildVals(forToken){
 
 async function handleSave(){
   var saveBtn = document.getElementById('modalSave');
+  saveBtn.dataset.mode = saveBtn.dataset.mode || 'save';
   if(saveBtn.dataset.mode === 'delete'){
     var r = findRowByKey(MODAL_ROWKEY);
     if(!r){ toast('Baris tidak ditemukan'); return; }

@@ -1,29 +1,26 @@
 /************************************************************************
  *  Code.gs — Backend Google Apps Script untuk "Monitor Order PR & PO"
- *  Tujuan : menerima aksi ADD / EDIT / DELETE dari dashboard web (GitHub Pages)
- *           lalu menuliskannya ke Google Spreadsheet yang sama.
+ *  Menerima aksi ADD / EDIT / DELETE dari dashboard (GitHub Pages)
+ *  lalu menuliskannya ke Google Spreadsheet yang sama.
  *
- *  CARA DEPLOY (sekali saja):
- *  1. Buka https://script.google.com  -> New project.
- *  2. Tempel seluruh isi file ini ke editor (ganti nama project bebas).
- *  3. (Opsional) isi SECRET di bawah bila ingin kunci akses sederhana.
- *  4. Klik Deploy -> New deployment -> type: Web app
- *       - Execute as : Me (akun pemilik spreadsheet)
- *       - Who has access : Anyone
- *  5. Salin URL "Web app" (…/macros/s/XXXX/exec) -> tempel ke variabel
- *     SCRIPT_URL di index.html ATAU buka dashboard dengan param:
- *     ?scriptUrl=https://script.google.com/macros/s/XXXX/exec
- *  6. Pastikan akun pemilik script adalah EDITOR spreadsheet target.
+ *  VERSION: 2.0 (11 kolom — termasuk "Status Kedatangan")
  *
- *  CATATAN KEAMANAN: siapa pun yang tahu URL web app dapat menulis.
- *  Untuk keperluan internal, simpan URL hanya di index.html milik Anda.
+ *  CARA DEPLOY (sekali saja, atau update):
+ *  1. Buka https://script.google.com -> buka project ini.
+ *  2. Ganti SELURUH isi file Code.gs dengan file ini.
+ *  3. Klik Deploy -> Manage deployments -> klik icon ✏️ (edit) pada
+ *     deployment yang ada -> Version: "New version" -> Deploy.
+ *     (Gunakan deployment YANG SAMA agar URL web app tidak berubah.)
+ *  4. Verifikasi: buka URL web app di browser (GET) -> harus tampil
+ *     {"ok":true,...,"version":"2.0","headers":[...11 kolom...]}
  ************************************************************************/
 
+var VERSION = '2.0';
 var SECRET = ''; // kosongkan = tanpa kunci; isi string rahasia untuk proteksi sederhana
 var SHEET_ID_FALLBACK = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
 var SHEET_NAME_FALLBACK = 'Response';
 
-/* urutan kolom pada sheet "Response" (A..K) — kini termasuk Status Kedatangan */
+/* urutan kolom pada sheet "Response" (A..K) — 11 kolom */
 var HEADERS = [
   'Timestamp',
   'Tanggal Input Reservasi',
@@ -38,25 +35,30 @@ var HEADERS = [
   'Status Kedatangan'
 ];
 
-/* ---------- entry point utama (POST dari dashboard) ---------- */
+/* ---------- akses GET (cek koneksi + versi yang sedang live) ---------- */
+function doGet(e) {
+  return json({
+    ok: true,
+    service: 'Monitor Order PR/PO backend',
+    version: VERSION,
+    headers: HEADERS,
+    ts: nowStamp()
+  });
+}
+
+/* ---------- entry point POST dari dashboard ---------- */
 function doPost(e) {
   try {
     var lock = LockService.getScriptLock();
     lock.waitLock(15000);
     try {
-      var result = handlePost(e);
-      return json(result);
+      return json(handlePost(e));
     } finally {
       lock.releaseLock();
     }
   } catch (err) {
     return json({ ok: false, error: String(err && err.message ? err.message : err) });
   }
-}
-
-/* ---------- akses GET (cek koneksi) ---------- */
-function doGet(e) {
-  return json({ ok: true, service: 'Monitor Order PR/PO backend', ts: nowStamp() });
 }
 
 function json(obj) {
@@ -83,65 +85,46 @@ function handlePost(e) {
   var sheet = ss.getSheetByName(sheetName) || ss.getSheets()[0];
   if (!sheet) throw new Error('Sheet "' + sheetName + '" tidak ditemukan');
 
-  if (action === 'add') {
-    return addRow(sheet, values);
-  } else if (action === 'edit') {
-    return editRow(sheet, rowId, values);
-  } else if (action === 'delete') {
-    return deleteRow(sheet, rowId, values);
-  }
+  if (action === 'add') return addRow(sheet, values);
+  if (action === 'edit') return editRow(sheet, rowId, values);
+  if (action === 'delete') return deleteRow(sheet, rowId, values);
+
   throw new Error('Aksi "' + action + '" tidak dikenal (pakai add/edit/delete)');
 }
 
 /* ---------- posisi & pemetaan ---------- */
-function headerRow(sheet) {
-  var first = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  return first;
-}
-
 function colIndex(sheet, headerName) {
-  var h = headerRow(sheet);
+  var h = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
   for (var i = 0; i < h.length; i++) {
     if (String(h[i]).trim().toLowerCase() === String(headerName).trim().toLowerCase()) return i;
   }
-  return -1;
+  /* fallback: cocokkan dgn urutan HEADERS */
+  return HEADERS.indexOf(headerName);
 }
 
-/* cari baris data: pakai rowId bila diberikan, fallback cocokkan Nomor PR */
-function locateRow(sheet, rowId, values) {
-  var lastRow = sheet.getLastRow();
-  if (rowId && rowId > 1) {
-    return rowId; // rowId sudah 1-based nomor baris sheet
-  }
-  var pr = String(values['Nomor PR'] || values['nomor pr'] || '').trim();
-  if (pr) {
-    var prIdx = colIndex(sheet, 'Nomor PR');
-    if (prIdx >= 0) {
-      for (var r = 2; r <= lastRow; r++) {
-        var cell = sheet.getRange(r, prIdx + 1).getValue();
-        if (String(cell).trim() === pr) return r;
-      }
-    }
-  }
-  throw new Error('Baris tidak ditemukan (rowId tidak valid & Nomor PR tidak cocok)');
-}
-
-/* ---------- nilai dalam urutan kolom ---------- */
 function pick(values, headerName) {
-  return (values[headerName] != null) ? String(values[headerName]) : '';
+  var v = values[headerName];
+  return (v == null) ? null : String(v);
 }
 
-function buildRowValues(sheet, values, isNew) {
+function setRowValues(sheet, row, values, preserve) {
+  /* preserve: array nilai lama (utk edit) agar kolom yg tak dikirim tidak terhapus */
   var out = [];
   for (var i = 0; i < HEADERS.length; i++) {
     var name = HEADERS[i];
-    if (name === 'Timestamp') {
-      out.push(pick(values, name) || (isNew ? nowStamp() : ''));
-    } else {
-      out.push(pick(values, name));
+    var v = pick(values, name);
+    if (v == null) {
+      if (preserve && row > 1) {
+        v = sheet.getRange(row, i + 1).getValue();
+      } else if (name === 'Timestamp') {
+        v = nowStamp();
+      } else {
+        v = '';
+      }
     }
+    out.push(v);
   }
-  return out;
+  sheet.getRange(row, 1, 1, HEADERS.length).setValues([out]);
 }
 
 function nowStamp() {
@@ -151,24 +134,34 @@ function nowStamp() {
          ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
+function locateRow(sheet, rowId, values) {
+  if (rowId && rowId > 1) return rowId; // 1-based nomor baris sheet
+  var pr = String(values['Nomor PR'] || '').trim();
+  if (pr) {
+    var prIdx = colIndex(sheet, 'Nomor PR');
+    var last = sheet.getLastRow();
+    for (var r = 2; r <= last; r++) {
+      if (String(sheet.getRange(r, prIdx + 1).getValue()).trim() === pr) return r;
+    }
+  }
+  throw new Error('Baris tidak ditemukan (rowId tidak valid & Nomor PR tidak cocok)');
+}
+
 /* ---------- AKSI ---------- */
 function addRow(sheet, values) {
-  var last = sheet.getLastRow();
-  var row = last + 1;
-  var out = buildRowValues(sheet, values, true);
-  sheet.getRange(row, 1, 1, HEADERS.length).setValues([out]);
-  return { ok: true, action: 'add', row: row };
+  var row = sheet.getLastRow() + 1;
+  setRowValues(sheet, row, values, false);
+  return { ok: true, action: 'add', row: row, version: VERSION };
 }
 
 function editRow(sheet, rowId, values) {
   var row = locateRow(sheet, rowId, values);
-  var out = buildRowValues(sheet, values, false);
-  sheet.getRange(row, 1, 1, HEADERS.length).setValues([out]);
-  return { ok: true, action: 'edit', row: row };
+  setRowValues(sheet, row, values, true); /* preserve kolom yang tak dikirim */
+  return { ok: true, action: 'edit', row: row, version: VERSION };
 }
 
 function deleteRow(sheet, rowId, values) {
   var row = locateRow(sheet, rowId, values);
   sheet.deleteRow(row);
-  return { ok: true, action: 'delete', row: row };
+  return { ok: true, action: 'delete', row: row, version: VERSION };
 }

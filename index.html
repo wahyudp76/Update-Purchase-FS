@@ -341,12 +341,31 @@ input[type=range]{accent-color:var(--accent);width:180px}
         </div>
         <div><label class="f-label">Jenis Order (barang) — satu baris per item</label><textarea class="f-textarea" id="fJenis" placeholder="- Ember plastik besar 15 pcs&#10;- Golok tebang biasa 15 pcs"></textarea></div>
         <div class="f-row">
-          <div><label class="f-label">Approval 1</label><input class="f-input" id="fA1" placeholder="OK / Belum"></div>
-          <div><label class="f-label">Approval 2</label><input class="f-input" id="fA2" placeholder="OK / Belum"></div>
+          <div><label class="f-label">Approval 1</label>
+            <select class="f-input" id="fA1">
+              <option value="OK">OK</option>
+              <option value="Sudah">Sudah</option>
+              <option value="Belum">Belum</option>
+            </select>
+          </div>
+          <div><label class="f-label">Approval 2</label>
+            <select class="f-input" id="fA2">
+              <option value="OK">OK</option>
+              <option value="Sudah">Sudah</option>
+              <option value="Belum">Belum</option>
+            </select>
+          </div>
         </div>
         <div class="f-row">
           <div><label class="f-label">Keperluan Order</label><input class="f-input" id="fKeperluan" placeholder="cth: Kantor"></div>
-          <div><label class="f-label">Status Kedatangan</label><input class="f-input" id="fArrival" placeholder="Belum / Sudah"></div>
+          <div><label class="f-label">Status Kedatangan</label>
+            <select class="f-input" id="fArrival">
+              <option value="Belum">Belum</option>
+              <option value="Proses">Proses</option>
+              <option value="Sudah">Sudah</option>
+              <option value="Dibatalkan">Dibatalkan</option>
+            </select>
+          </div>
         </div>
         <div><label class="f-label">Keterangan</label><input class="f-input" id="fKet" placeholder="opsional"></div>
       </div>
@@ -1137,6 +1156,7 @@ function renderTable(){
       + '<td>'+statusBadge(r)+'</td>'
       + '<td>'+agingBadge(r)+'</td>'
       + '<td>'+esc(r.keperluan)+'</td>'
+      + '<td>'+(r.ket ? esc(r.ket) : '<span class="mini">—</span>')+'</td>'
       + actBtns
       + '</tr>';
   }).join('');
@@ -1159,8 +1179,9 @@ function renderTable(){
     + '<th class="sortable" data-k="status">Status Kedatangan'+arrow('status')+'</th>'
     + '<th class="sortable" data-k="age">Umur'+arrow('age')+'</th>'
     + '<th>Keperluan</th>'
+    + '<th>Keterangan</th>'
     + '<th>Aksi</th>'
-    + '</tr></thead><tbody>'+(trs||'<tr><td colspan="11"><div class="empty">Tidak ada data cocok</div></td></tr>')+'</tbody></table></div>'
+    + '</tr></thead><tbody>'+(trs||'<tr><td colspan="12"><div class="empty">Tidak ada data cocok</div></td></tr>')+'</tbody></table></div>'
     + '</section>';
 }
 
@@ -1338,12 +1359,28 @@ function openEditModal(k){
   document.getElementById('fPr').value = r.pr || '';
   document.getElementById('fPo').value = r.po || '';
   document.getElementById('fJenis').value = (r.items || []).map(function(it){ return '- ' + it; }).join('\n');
-  document.getElementById('fA1').value = r.a1 || '';
-  document.getElementById('fA2').value = r.a2 || '';
-  document.getElementById('fArrival').value = r.arrivalRaw || r.status || '';
+  setSelect('fA1', r.a1);
+  setSelect('fA2', r.a2);
+  setSelect('fArrival', r.arrivalRaw || r.status);
   document.getElementById('fKeperluan').value = r.keperluan === '—' ? '' : r.keperluan;
   document.getElementById('fKet').value = r.ket || '';
   toggleModal(true, { note: 'Perubahan ditulis <b>langsung ke spreadsheet</b>. Baris: PR ' + (r.pr||'-') + ' / PO ' + (r.po||'-') + '.' });
+}
+
+/* set nilai dropdown; bila nilai data belum ada di opsi, tambahkan agar tidak hilang */
+function setSelect(id, val){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var v = String(val || '').trim();
+  if(!v){ el.value = (el.options[0] && el.options[0].value) || ''; return; }
+  var found = false;
+  for(var i=0;i<el.options.length;i++){ if(el.options[i].value === v){ found = true; break; } }
+  if(!found){
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    el.appendChild(o);
+  }
+  el.value = v;
 }
 
 function confirmDelete(k){

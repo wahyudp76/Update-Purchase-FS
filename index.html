@@ -344,7 +344,10 @@ input[type=range]{accent-color:var(--accent);width:180px}
           <div><label class="f-label">Approval 1</label><input class="f-input" id="fA1" placeholder="OK / Belum"></div>
           <div><label class="f-label">Approval 2</label><input class="f-input" id="fA2" placeholder="OK / Belum"></div>
         </div>
-        <div><label class="f-label">Keperluan Order</label><input class="f-input" id="fKeperluan" placeholder="cth: Kantor"></div>
+        <div class="f-row">
+          <div><label class="f-label">Keperluan Order</label><input class="f-input" id="fKeperluan" placeholder="cth: Kantor"></div>
+          <div><label class="f-label">Status Kedatangan</label><input class="f-input" id="fArrival" placeholder="Belum / Sudah"></div>
+        </div>
         <div><label class="f-label">Keterangan</label><input class="f-input" id="fKet" placeholder="opsional"></div>
       </div>
       <div class="modal-foot">
@@ -376,10 +379,12 @@ var SHEET_NAME = CFG.sheet;
 var GVURL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json'
   + (CFG.gid ? ('&gid=' + encodeURIComponent(CFG.gid)) : ('&sheet=' + encodeURIComponent(SHEET_NAME)));
 
-/* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu */
+/* Snapshot offline (fallback saat preview tanpa jaringan) — diperbarui manual bila perlu
+   Kolom: Timestamp, Tanggal, Divisi, Jenis Order, PR, PO, Approval1, Approval2, Keterangan, Keperluan, Status Kedatangan */
 var SNAPSHOT = [
-  ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","1300203795","","Belum","Belum","Untuk keperluan tenaga kerja irigasi","Kantor"],
-  ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","1300203795","","Belum","Belum","Untuk cuci steam mesin irigasi","Kantor"]
+  ["25/09/2026 10:34:52","29/07/2026","PG2","BUSHING RUBBER;F/BAUT FCL200 8 pcs","1300199595","4400258966","Sudah","Sudah","","Spareparts Engine","Belum"],
+  ["23/09/2026 14:45:35","23/09/2026","OP2","- Ember plastik besar 15 pcs\n- Golok tebang biasa 15 pcs\n- Cangkul + gagang 15 pcs\n- Terpal hijau 4x6 15 pcs","1300203795","","Sudah","Belum","Untuk keperluan tenaga kerja irigasi","Kantor","Belum"],
+  ["23/09/2026 14:47:19","23/09/2026","OP2","- Selang dobel elpiji / oksigen 6,5mm - 8mm 50 meter","1300203795","","Belum","Belum","Untuk cuci steam mesin irigasi","Kantor","Belum"]
 ];
 
 /* Dedupe: buang baris yang isinya 100% sama (duplikat dari form/import) */
@@ -415,7 +420,18 @@ var TABS = [
 ];
 
 var DIVI_COLORS = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b'];
-var STATUS_COLORS = {'Selesai':'#10b981','Menunggu Approval':'#f59e0b','Belum PO':'#ef4444','Tanpa Divisi':'#64748b'};
+var FLOW_COLORS = {'Selesai':'#10b981','Menunggu Approval':'#f59e0b','Belum PO':'#ef4444'};
+/* Status Kedatangan (kolom baru di spreadsheet) */
+function arrivalInfo(v){
+  var s = String(v==null?'':v).trim();
+  var low = s.toLowerCase();
+  if(!s) return { label:'Belum Diisi', key:'kosong', color:'#64748b', raw:'' };
+  if(/(sudah|datang|tiba|sampai|received|diterima|arrived)/.test(low)) return { label:'Sudah', key:'sudah', color:'#10b981', raw:s };
+  if(/(batal|cancel)/.test(low)) return { label:s, key:'batal', color:'#ef4444', raw:s };
+  if(/(sebagian|partial)/.test(low)) return { label:'Sebagian', key:'sebagian', color:'#8b5cf6', raw:s };
+  if(/(belum|proses|menunggu|pending|diproses|dalam perjalanan|on ?going|otw)/.test(low)) return { label:s, key:'proses', color:'#f59e0b', raw:s };
+  return { label:s, key:'lain', color:'#0ea5e9', raw:s };
+}
 
 /* ============ UTIL ============ */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -471,21 +487,26 @@ function normalize(raw){
   var a2 = get('Approval 2');
   var ket = get('Keterangan');
   var keperluan = get('Keperluan Order') || '—';
+  var arrivalRaw = get('Status Kedatangan');
 
   var items = parseItems(jenis);
   var dateObj = parseDMY(tgl) || parseDMY(ts);
   var age = dateObj ? daysAgo(dateObj) : null;
   var hasPO = po !== '';
   var appr1 = isOK(a1), appr2 = isOK(a2);
-  var status = !hasPO ? 'Belum PO' : (!appr1 || !appr2) ? 'Menunggu Approval' : 'Selesai';
+  /* flow = alur proses PR/PO/approval (dipertahankan utk tab Status & Approval) */
+  var flow = !hasPO ? 'Belum PO' : (!appr1 || !appr2) ? 'Menunggu Approval' : 'Selesai';
   var progress = [hasPO, appr1, appr2].filter(Boolean).length;
+  var arr = arrivalInfo(arrivalRaw);
 
   return {
     raw: raw,
     ts: ts, tgl: tgl, divisi: divisi, jenis: jenis, pr: pr, po: po,
     a1: a1, a2: a2, ket: ket, keperluan: keperluan,
     items: items, hasPO: hasPO, appr1: appr1, appr2: appr2,
-    status: status, progress: progress,
+    status: arr.label, statusKey: arr.key, statusColor: arr.color, arrivalRaw: arrivalRaw,
+    flow: flow, flowKey: !hasPO ? 'nopo' : (!appr1 || !appr2) ? 'wait' : 'done',
+    progress: progress,
     date: dateObj, age: age, mkey: monthKey(dateObj)
   };
 }
@@ -496,7 +517,7 @@ function loadFromSnapshot(){
     return normalize({
       'Timestamp':r[0], 'Tanggal Input Reservasi':r[1], 'Divisi':r[2], 'Jenis Order':r[3],
       'Nomor PR':r[4], 'Nomor PO':r[5], 'Approval 1':r[6], 'Approval 2':r[7],
-      'Keterangan':r[8], 'Keperluan Order':r[9]
+      'Keterangan':r[8], 'Keperluan Order':r[9], 'Status Kedatangan':r[10]
     });
   });
 }
@@ -666,8 +687,12 @@ function agingBadge(r){
   return '<span class="badge ok"><span class="dot"></span>'+r.age+' hr</span>';
 }
 function statusBadge(r){
-  var c = STATUS_COLORS[r.status] || '#64748b';
-  return '<span class="badge" style="background:'+hexA(c,0.14)+';color:'+c+'"><span class="dot"></span>'+esc(r.status)+'</span>';
+  var c = r.statusColor || '#64748b';
+  return '<span class="badge" style="background:'+hexA(c,0.14)+';color:'+c+'"><span class="dot"></span>'+esc(r.status || '—')+'</span>';
+}
+function flowBadge(r){
+  var c = FLOW_COLORS[r.flow] || '#64748b';
+  return '<span class="badge" style="background:'+hexA(c,0.14)+';color:'+c+'"><span class="dot"></span>'+esc(r.flow)+'</span>';
 }
 function apprBadge(val, ok){
   if(ok) return '<span class="badge appr-ok">✓ '+esc(val || 'OK')+'</span>';
@@ -770,11 +795,26 @@ var IC = {
   trash:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
 };
 
+function statusGroups(){
+  /* kelompokkan per Status Kedatangan; pertahankan urutan konsisten */
+  var order = [];
+  ROWS.forEach(function(r){
+    var key = r.statusKey;
+    if(!key) key = 'kosong';
+    if(!order.some(function(o){ return o.key===key; })) order.push({ key:key, label:r.status, color:r.statusColor });
+  });
+  var counts = {};
+  ROWS.forEach(function(r){ counts[r.statusKey] = (counts[r.statusKey]||0)+1; });
+  return order.map(function(o){ return { key:o.key, label:o.label, value:counts[o.key]||0, color:o.color }; });
+}
+
 function renderOverview(){
   var total = ROWS.length;
   var withPO = ROWS.filter(function(r){ return r.hasPO; }).length;
-  var waitAppr = ROWS.filter(function(r){ return r.status==='Menunggu Approval' || r.status==='Belum PO'; }).length;
-  var done = ROWS.filter(function(r){ return r.status==='Selesai'; }).length;
+  var waitAppr = ROWS.filter(function(r){ return r.flowKey==='wait' || r.flowKey==='nopo'; }).length;
+  var done = ROWS.filter(function(r){ return r.flowKey==='done'; }).length;
+  var arrived = ROWS.filter(function(r){ return r.statusKey==='sudah'; }).length;
+  var pendingArr = ROWS.filter(function(r){ return r.statusKey!=='sudah'; }).length;
   var itemLines = 0, qtyTotal = 0;
   ROWS.forEach(function(r){ r.items.forEach(function(it){ itemLines++; qtyTotal += splitQty(it).qty; }); });
   var warnCount = ROWS.filter(function(r){ var c=agingClass(r); return c==='warn'||c==='crit'; }).length;
@@ -786,9 +826,16 @@ function renderOverview(){
     return {label:d, value:byD[d], color:divisiColor(d)};
   });
 
-  /* status */
-  var byS = {'Selesai':done, 'Menunggu Approval':ROWS.filter(function(r){return r.status==='Menunggu Approval';}).length, 'Belum PO':ROWS.filter(function(r){return r.status==='Belum PO';}).length};
-  var sParts = Object.keys(byS).filter(function(k){return byS[k]>0;}).map(function(k){return {label:k, value:byS[k], color:STATUS_COLORS[k]};});
+  /* status kedatangan (kolom baru) */
+  var sParts = statusGroups();
+
+  /* per status kedatangan per divisi */
+  var arrByDiv = divisiList().map(function(d){
+    var rs = ROWS.filter(function(r){ return r.divisi===d; });
+    var arrivedD = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
+    var tot = rs.length;
+    return { label:d, value:tot, arrived:arrivedD, color:divisiColor(d) };
+  });
 
   /* trend bulanan */
   var byM = {}; ROWS.forEach(function(r){ if(r.mkey){ byM[r.mkey]=(byM[r.mkey]||0)+1; } });
@@ -799,23 +846,35 @@ function renderOverview(){
   var topItems = Object.keys(itemCount).map(function(n){return {label:n, value:itemCount[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
   topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; });
 
+  /* bars kedatangan per divisi (stack) */
+  var arrBars = arrByDiv.map(function(d){
+    var pct = d.value ? Math.round(d.arrived/d.value*100) : 0;
+    return '<div style="margin-bottom:12px"><div class="hbar-label"><span>'+esc(d.label)+'</span><span class="hbar-val">'+nf(d.arrived)+'/'+nf(d.value)+' datang</span></div>'
+      + '<div style="display:flex;height:9px;border-radius:99px;overflow:hidden;background:#eef0f4">'
+      + (d.arrived>0 ? '<div style="width:'+pct+'%;background:#10b981"></div>' : '')
+      + (d.value-d.arrived>0 ? '<div style="width:'+(100-pct)+'%;background:#f59e0b"></div>' : '')
+      + '</div></div>';
+  }).join('');
+
   return '<section class="tab-page">'
     + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh setiap 5 menit dari sheet "Response"</span></div>'
     + '<div class="grid cols-5">'
     + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5')
     + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9')
-    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO dibuat / belum PO & approval belum lengkap', '#f59e0b')
-    + kpi(IC.check, nf(done), 'Selesai', 'Approval 1 & 2 lengkap', '#10b981')
+    + kpi(IC.clock, nf(waitAppr), 'Approval Belum Lengkap', 'PO belum ada / approval belum lengkap', '#f59e0b')
+    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981')
     + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444')
     + '</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Status Kedatangan</h3>'+donut(sParts, 168)+'</div>'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>Order per Divisi</h3>'+hbar(divBars)+'</div>'
-    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Status Order</h3>'+donut(sParts, 168)+'</div>'
     + '</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 6-8"/><path d="M14 7h4v4"/></svg>Tren Order per Bulan</h3>'+lineChart(trend)+'</div>'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7 7 .3-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.3 9 8z"/></svg>Item Paling Sering Dipesan</h3>'+hbar(topItems)+'</div>'
     + '</div>'
+    + '<div class="card" style="margin-top:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Kedatangan per Divisi</h3><div class="hbars">'+arrBars+'</div>'
+    + '<p class="hint">Hijau = sudah datang · Kuning = belum/proses. Berdasarkan kolom "Status Kedatangan" di sheet.</p></div>'
     + '</section>';
 }
 
@@ -858,7 +917,7 @@ function renderJenis(){
     + '<div class="card"><h3>Keperluan Order</h3>'+donut(kepParts, 168)+'</div>'
     + '</div>'
     + '<div class="card" style="margin-top:16px"><h3>Total Kuantitas per Item (Top 10)</h3>'+hbar(topQty.map(function(t){return {label:t.label, value:t.value, color:'#4f46e5'};}))+'</div>'
-    + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div></div>'
+    + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div></div>'
     + '</section>';
 }
 
@@ -868,8 +927,8 @@ function renderDivisi(){
   var cards = list.map(function(d){
     var rs = ROWS.filter(function(r){ return r.divisi===d; });
     var po = rs.filter(function(r){ return r.hasPO; }).length;
-    var wait = rs.filter(function(r){ return r.status==='Menunggu Approval'||r.status==='Belum PO'; }).length;
-    var done = rs.filter(function(r){ return r.status==='Selesai'; }).length;
+    var arrived = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
+    var notArrived = rs.filter(function(r){ return r.statusKey!=='sudah'; }).length;
     var ages = rs.map(function(r){ return r.age; }).filter(function(a){ return a!=null; });
     var avg = ages.length ? Math.round(ages.reduce(function(a,b){return a+b;},0)/ages.length) : 0;
     var color = divisiColor(d);
@@ -877,8 +936,8 @@ function renderDivisi(){
       + '<div class="divi-head"><div class="divi-ava" style="background:'+color+'">'+esc(d.replace(/\s+/g,'').slice(0,2).toUpperCase())+'</div><div><h3 style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--txt)">'+esc(d)+'</h3><span class="mini">'+nf(rs.length)+' order</span></div></div>'
       + '<div class="divi-meta">'
       + '<div class="m"><div class="t">PO dibuat</div><div class="v">'+nf(po)+'</div></div>'
-      + '<div class="m"><div class="t">Selesai</div><div class="v" style="color:#10b981">'+nf(done)+'</div></div>'
-      + '<div class="m"><div class="t">Menunggu</div><div class="v" style="color:#f59e0b">'+nf(wait)+'</div></div>'
+      + '<div class="m"><div class="t">Sudah datang</div><div class="v" style="color:#10b981">'+nf(arrived)+'</div></div>'
+      + '<div class="m"><div class="t">Belum datang</div><div class="v" style="color:#f59e0b">'+nf(notArrived)+'</div></div>'
       + '<div class="m"><div class="t">Rata² umur</div><div class="v">'+nf(avg)+' hr</div></div>'
       + '</div>'
       + '</div>';
@@ -891,7 +950,7 @@ function renderDivisi(){
     + '<div class="grid cols-3">'+cards+'</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3>Jumlah Order per Divisi</h3>'+hbar(bars)+'</div>'
-    + '<div class="card"><h3>Perbandingan Status per Divisi</h3>'+divisiStatusBars(list)+'</div>'
+    + '<div class="card"><h3>Perbandingan Kedatangan per Divisi</h3>'+divisiStatusBars(list)+'</div>'
     + '</div>'
     + '</section>';
 }
@@ -900,20 +959,17 @@ function divisiStatusBars(list){
   var html = '<div class="hbars">';
   list.forEach(function(d){
     var rs = ROWS.filter(function(r){ return r.divisi===d; });
-    var done = rs.filter(function(r){ return r.status==='Selesai'; }).length;
-    var wait = rs.filter(function(r){ return r.status==='Menunggu Approval'; }).length;
-    var noPO = rs.filter(function(r){ return r.status==='Belum PO'; }).length;
+    var arrived = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
+    var notArrived = rs.length - arrived;
     var tot = rs.length || 1;
     html += '<div style="margin-bottom:12px"><div class="hbar-label"><span>'+esc(d)+'</span><span class="hbar-val">'+nf(rs.length)+'</span></div>';
     html += '<div style="display:flex;height:9px;border-radius:99px;overflow:hidden;gap:2px;background:#eef0f4">';
-    if(done) html += '<div style="width:'+(done/tot*100)+'%;background:#10b981" title="Selesai '+done+'"></div>';
-    if(wait) html += '<div style="width:'+(wait/tot*100)+'%;background:#f59e0b" title="Menunggu approval '+wait+'"></div>';
-    if(noPO) html += '<div style="width:'+(noPO/tot*100)+'%;background:#ef4444" title="Belum PO '+noPO+'"></div>';
+    if(arrived) html += '<div style="width:'+(arrived/tot*100)+'%;background:#10b981" title="Sudah datang '+arrived+'"></div>';
+    if(notArrived) html += '<div style="width:'+(notArrived/tot*100)+'%;background:#f59e0b" title="Belum datang '+notArrived+'"></div>';
     html += '</div>'
       + '<div style="display:flex;gap:12px;margin-top:5px;font-size:11px;color:var(--muted)">'
-      + '<span><span style="color:#10b981">●</span> Selesai '+done+'</span>'
-      + '<span><span style="color:#f59e0b">●</span> Approval '+wait+'</span>'
-      + '<span><span style="color:#ef4444">●</span> Belum PO '+noPO+'</span>'
+      + '<span><span style="color:#10b981">●</span> Sudah datang '+arrived+'</span>'
+      + '<span><span style="color:#f59e0b">●</span> Belum datang '+notArrived+'</span>'
       + '</div></div>';
   });
   html += '</div>';
@@ -922,14 +978,16 @@ function divisiStatusBars(list){
 
 function renderStatus(){
   var noPO = ROWS.filter(function(r){ return !r.hasPO; }).length;
-  var waitAppr = ROWS.filter(function(r){ return r.hasPO && r.status==='Menunggu Approval'; }).length;
-  var done = ROWS.filter(function(r){ return r.status==='Selesai'; }).length;
+  var waitAppr = ROWS.filter(function(r){ return r.hasPO && r.flowKey==='wait'; }).length;
+  var done = ROWS.filter(function(r){ return r.flowKey==='done'; }).length;
+  var arrived = ROWS.filter(function(r){ return r.statusKey==='sudah'; }).length;
+  var notArrived = ROWS.filter(function(r){ return r.statusKey!=='sudah'; }).length;
   var a1ok = ROWS.filter(function(r){ return r.appr1; }).length;
   var a2ok = ROWS.filter(function(r){ return r.appr2; }).length;
   var total = ROWS.length || 1;
 
   /* baris yang perlu perhatian: approval belum lengkap */
-  var pending = ROWS.filter(function(r){ return r.status!=='Selesai'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
+  var pending = ROWS.filter(function(r){ return r.flowKey!=='done'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
 
   var pendingRows = pending.length ? pending.map(function(r){
     var ac = agingClass(r);
@@ -941,10 +999,11 @@ function renderStatus(){
       + '<td class="mono">'+(r.po?esc(r.po):'<span class="badge crit">tanpa PO</span>')+'</td>'
       + '<td>'+apprBadge(r.a1, r.appr1)+'</td>'
       + '<td>'+apprBadge(r.a2, r.appr2)+'</td>'
+      + '<td>'+flowBadge(r)+'</td>'
       + '<td>'+statusBadge(r)+'</td>'
       + '<td>'+agingBadge(r)+'</td>'
       + '</tr>';
-  }).join('') : '<tr><td colspan="8"><div class="empty">Semua order sudah lengkap approval ✓</div></td></tr>';
+  }).join('') : '<tr><td colspan="9"><div class="empty">Semua order sudah lengkap approval ✓</div></td></tr>';
 
   var steps = [
     {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5'},
@@ -959,14 +1018,18 @@ function renderStatus(){
   }).join('');
 
   return '<section class="tab-page">'
-    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu perhatian approval</span><span class="spacer"></span><span class="mini">Order dengan approval belum lengkap tampil di bawah</span></div>'
+    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu perhatian approval</span><span class="spacer"></span><span class="mini">Status Kedatangan: '+nf(arrived)+' sudah · '+nf(notArrived)+' belum</span></div>'
     + '<div class="card" style="margin-bottom:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses (Pipeline)</h3><div class="stepper">'+stepper+'</div></div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
-    + kpi(IC.check, nf(done), 'Selesai', 'Approval 1 & 2 lengkap', '#10b981')
+    + kpi(IC.check, nf(done), 'Approval Lengkap', 'Approval 1 & 2 lengkap', '#10b981')
     + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO ada, approval belum lengkap', '#f59e0b')
     + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'Nomor PO belum dibuat', '#ef4444')
     + '</div>'
-    + '<div class="card"><h3>⚠ Order yang Belum Lengkap Approval</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Status</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
+    + '<div class="grid cols-2" style="margin-bottom:16px">'
+    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981')
+    + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b')
+    + '</div>'
+    + '<div class="card"><h3>⚠ Order yang Belum Lengkap Approval</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
     + '</section>';
 }
 
@@ -1017,9 +1080,9 @@ function renderTable(){
   var q = state.q.toLowerCase();
   var rows = ROWS.filter(function(r){
     if(state.divFilter!=='all' && r.divisi!==state.divFilter) return false;
-    if(state.stFilter!=='all' && r.status!==state.stFilter) return false;
+    if(state.stFilter!=='all' && r.statusKey!==state.stFilter) return false;
     if(q){
-      var hay = (r.divisi+' '+r.pr+' '+r.po+' '+r.jenis+' '+r.ket+' '+r.keperluan+' '+r.status).toLowerCase();
+      var hay = (r.divisi+' '+r.pr+' '+r.po+' '+r.jenis+' '+r.ket+' '+r.keperluan+' '+r.status+' '+(r.arrivalRaw||'')).toLowerCase();
       if(hay.indexOf(q)<0) return false;
     }
     return true;
@@ -1042,15 +1105,15 @@ function renderTable(){
   });
 
   var divOpts = ['<option value="all">Semua Divisi</option>'].concat(divisiList().map(function(d){ return '<option value="'+esc(d)+'"'+(state.divFilter===d?' selected':'')+'>'+esc(d)+'</option>'; })).join('');
-  var stOpts = ['<option value="all">Semua Status</option>','<option value="Selesai">Selesai</option>','<option value="Menunggu Approval">Menunggu Approval</option>','<option value="Belum PO">Belum PO</option>'].map(function(s){
-    var v=s.split('>')[0]; /* not used */
-    return s.replace('<option ', '<option ').replace('>'+s.split('<option value="')[1].split('"')[0]+'<','>'+s.split('<option value="')[1].split('"')[0]+'<');
-  }).join('');
 
-  stOpts = '<option value="all"'+(state.stFilter==='all'?' selected':'')+'>Semua Status</option>'
-    + '<option value="Selesai"'+(state.stFilter==='Selesai'?' selected':'')+'>Selesai</option>'
-    + '<option value="Menunggu Approval"'+(state.stFilter==='Menunggu Approval'?' selected':'')+'>Menunggu Approval</option>'
-    + '<option value="Belum PO"'+(state.stFilter==='Belum PO'?' selected':'')+'>Belum PO</option>';
+  /* filter Status Kedatangan — opsi diambil dari nilai yang ada di data */
+  var stOpts = '<option value="all"'+(state.stFilter==='all'?' selected':'')+'>Semua Status Kedatangan</option>';
+  ['sudah','proses','kosong','sebagian','batal','lain'].forEach(function(kk){
+    var labelMap = {'sudah':'Sudah datang','proses':'Belum / Proses','kosong':'Belum diisi','sebagian':'Sebagian','batal':'Batal','lain':'Lainnya'};
+    if(!ROWS.some(function(r){ return r.statusKey===kk; })) return;
+    var lbl = labelMap[kk];
+    stOpts += '<option value="'+kk+'"'+(state.stFilter===kk?' selected':'')+'>'+lbl+'</option>';
+  });
 
   var arrow = function(k){ return state.sortKey===k ? (state.sortDir===1?' ▲':' ▼') : ''; };
 
@@ -1093,7 +1156,7 @@ function renderTable(){
     + '<th class="sortable" data-k="po">Nomor PO'+arrow('po')+'</th>'
     + '<th>Jenis Order (Barang)</th>'
     + '<th>Approval 1</th><th>Approval 2</th>'
-    + '<th class="sortable" data-k="status">Status'+arrow('status')+'</th>'
+    + '<th class="sortable" data-k="status">Status Kedatangan'+arrow('status')+'</th>'
     + '<th class="sortable" data-k="age">Umur'+arrow('age')+'</th>'
     + '<th>Keperluan</th>'
     + '<th>Aksi</th>'
@@ -1259,7 +1322,7 @@ function openAddModal(){
   var dd = String(today.getDate()).padStart(2,'0');
   var mm = String(today.getMonth()+1).padStart(2,'0');
   var yyyy = today.getFullYear();
-  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fKet:'' };
+  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fArrival:'Belum', fKet:'' };
   Object.keys(vals).forEach(function(id){ document.getElementById(id).value = vals[id]; });
   toggleModal(true, { note: 'Order baru akan ditulis <b>langsung ke spreadsheet</b> (tab "' + SHEET_NAME + '") melalui Google Apps Script.' });
 }
@@ -1277,6 +1340,7 @@ function openEditModal(k){
   document.getElementById('fJenis').value = (r.items || []).map(function(it){ return '- ' + it; }).join('\n');
   document.getElementById('fA1').value = r.a1 || '';
   document.getElementById('fA2').value = r.a2 || '';
+  document.getElementById('fArrival').value = r.arrivalRaw || r.status || '';
   document.getElementById('fKeperluan').value = r.keperluan === '—' ? '' : r.keperluan;
   document.getElementById('fKet').value = r.ket || '';
   toggleModal(true, { note: 'Perubahan ditulis <b>langsung ke spreadsheet</b>. Baris: PR ' + (r.pr||'-') + ' / PO ' + (r.po||'-') + '.' });
@@ -1324,6 +1388,7 @@ function buildVals(forToken){
   v['Approval 1'] = document.getElementById('fA1').value.trim();
   v['Approval 2'] = document.getElementById('fA2').value.trim();
   v['Keperluan Order'] = document.getElementById('fKeperluan').value.trim();
+  v['Status Kedatangan'] = document.getElementById('fArrival').value.trim();
   v['Keterangan'] = document.getElementById('fKet').value.trim();
   return v;
 }

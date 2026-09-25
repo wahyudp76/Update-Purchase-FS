@@ -23,7 +23,7 @@ var SECRET = ''; // kosongkan = tanpa kunci; isi string rahasia untuk proteksi s
 var SHEET_ID_FALLBACK = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
 var SHEET_NAME_FALLBACK = 'Response';
 
-/* urutan kolom pada sheet "Response" (A..J) */
+/* urutan kolom pada sheet "Response" (A..K) — kini termasuk Status Kedatangan */
 var HEADERS = [
   'Timestamp',
   'Tanggal Input Reservasi',
@@ -34,7 +34,8 @@ var HEADERS = [
   'Approval 1',
   'Approval 2',
   'Keterangan',
-  'Keperluan Order'
+  'Keperluan Order',
+  'Status Kedatangan'
 ];
 
 /* ---------- entry point utama (POST dari dashboard) ---------- */

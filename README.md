@@ -84,10 +84,13 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
 | Approval 1 / Approval 2 | status approval |
 | Keterangan | catatan |
 | Keperluan Order | kategori keperluan |
+| Status Kedatangan | status barang sudah/belum datang |
 
 ## Logika status otomatis
 
-- **Belum PO** → Nomor PO kosong.
-- **Menunggu Approval** → PO ada tapi Approval 1 / 2 belum lengkap.
-- **Selesai** → PO ada + Approval 1 & 2 lengkap.
+- **Status Kedatangan** dibaca langsung dari kolom "Status Kedatangan" di sheet: nilai "Sudah"/"Datang"/"Tiba" → hijau; "Belum"/"Proses"/"Menunggu" → kuning; lainnya biru/abu.
+- **Alur proses (flow)** tetap dihitung otomatis untuk tab Status & Approval:
+  - **Belum PO** → Nomor PO kosong.
+  - **Menunggu Approval** → PO ada tapi Approval 1 / 2 belum lengkap.
+  - **Selesai** → PO ada + Approval 1 & 2 lengkap.
 - **Warning aging** → umur order ≥ 7 hari (default), **Kritis** → ≥ 14 hari.

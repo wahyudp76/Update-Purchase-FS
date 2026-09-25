@@ -644,7 +644,7 @@ function hideSyncBanner(){
 /* ============ WRITE-BACK via Google Apps Script ============ */
 /* URL web app Apps Script. Set lewat konstanta di bawah ATAU param URL:
    ?scriptUrl=https://script.google.com/macros/s/XXXX/exec */
-var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyW6hZtv-u3TXHwcChxadKuCYg9Vqnkr-5T_DaDrY1vTZ0Y7NYTDnkcNRWi_q-zYCsF/exec';
+var DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvSPofaWIN1YkIp8tRxxmHmy2kzfkxOoirdXH7lWcRLZKzGDiA0Lz9Oe3ySaJheJf4/exec';
 var SCRIPT_URL = (function(){
   try{ return new URLSearchParams(location.search).get('scriptUrl') || DEFAULT_SCRIPT_URL; }catch(e){ return DEFAULT_SCRIPT_URL; }
 })();

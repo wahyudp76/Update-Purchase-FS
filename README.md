@@ -3,6 +3,7 @@
 Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheets (sheet **"Response"**).
 
 - **Auto-sync**: data di-fetch langsung & otomatis dari Google Sheets setiap 5 menit (bisa dimatikan via toggle).
+- **Klik kategori → detail order (drill-down)**: semua box KPI, bar chart, legenda donut, dan step pipeline bisa diklik — muncul modal berisi daftar order dalam kategori tersebut (lengkap dengan tombol edit/hapus). Tutup dengan ×, tombol Esc, atau klik area gelap.
 - **Fitur**:
   - **Overview** — total order, PO dibuat, menunggu approval, selesai, warning aging, tren bulanan, order per divisi, status, item terpopuler.
   - **Jenis Order** — rincian per item/barang, kategori keperluan, top item & total kuantitas.
@@ -94,3 +95,4 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
   - **Menunggu Approval** → PO ada tapi Approval 1 / 2 belum lengkap.
   - **Selesai** → PO ada + Approval 1 & 2 lengkap.
 - **Warning aging** → umur order ≥ 7 hari (default), **Kritis** → ≥ 14 hari.
+- **Pengecualian aging**: order dengan Status Kedatangan **"Sudah"** tidak dihitung sebagai warning/kritis dan tidak muncul di daftar Aging Order (barangnya telah tiba). Tersedia checkbox "Tampilkan yang sudah datang" untuk tetap menampilkannya. Status "Sebagian" **tetap** dihitung karena sisanya masih perlu follow-up.

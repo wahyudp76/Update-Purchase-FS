@@ -141,6 +141,21 @@ select.select{
 .kpi .val{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
 .kpi .lbl{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:4px}
 .kpi .sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+/* ===== klik kategori → detail order (drill-down) ===== */
+.kpi.clickable{cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.kpi.clickable:hover{transform:translateY(-3px);border-color:#c7cbd6;box-shadow:0 14px 30px -16px rgba(15,23,42,.25)}
+.kpi.clickable:active{transform:translateY(-1px)}
+.kpi.clickable .see{position:absolute;right:12px;bottom:10px;font-size:10.5px;font-weight:700;color:var(--accent);opacity:.7;transition:.15s}
+.kpi.clickable:hover .see{opacity:1}
+.hbars div.clickable{cursor:pointer;border-radius:10px;padding:5px 7px;margin:-5px -7px;transition:background .12s}
+.hbars div.clickable:hover{background:#f1f3fb}
+.legend .row.clickable{cursor:pointer;border-radius:8px;padding:4px 7px;margin:-4px -7px;transition:background .12s}
+.legend .row.clickable:hover{background:#f1f3fb}
+.step{cursor:pointer;transition:transform .15s,box-shadow .15s}
+.step:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(15,23,42,.3)}
+.modal.wide{max-width:920px}
+.drill-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .spark{position:absolute;right:-14px;top:-14px;opacity:.5;width:96px;height:96px}
 
 /* ---------- Bars / donut ---------- */
@@ -386,6 +401,18 @@ input[type=range]{accent-color:var(--accent);width:180px}
         <button class="btn-sm gh" id="modalCancel" type="button">Batal</button>
         <button class="btn-sm prim" id="modalSave" type="button">Simpan</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal drill-down: daftar order per kategori (klik box KPI / legenda / bar) -->
+  <div class="modal-back" id="drillBack" style="display:none">
+    <div class="modal wide">
+      <div class="modal-head">
+        <span class="drill-dot" id="drillDot"></span>
+        <h2 id="drillTitle">Detail Order</h2>
+        <button class="modal-close" id="drillClose" type="button" title="Tutup">×</button>
+      </div>
+      <div class="modal-body" id="drillBody"></div>
     </div>
   </div>
 
@@ -745,13 +772,14 @@ function divisiColor(d){
 var _dlist = null;
 function divisiList(){ if(_dlist) return _dlist; var m={}; ROWS.forEach(function(r){m[r.divisi]=1;}); _dlist=Object.keys(m).sort(); return _dlist; }
 
-function kpi(ic, val, lbl, sub, bg){
-  return '<div class="card kpi">'
+function kpi(ic, val, lbl, sub, bg, drill){
+  return '<div class="card kpi'+(drill?' clickable':'')+'"'+(drill?' data-drill="'+drill+'" role="button" tabindex="0" title="Klik untuk melihat daftar order"':'')+'>'
     + '<span class="spark" style="color:'+bg+'" aria-hidden="true"><svg width="96" height="96" viewBox="0 0 96 96"><circle cx="84" cy="12" r="72" fill="'+bg+'" opacity=".12"/></svg></span>'
     + '<div class="ic" style="background:'+bg+'">'+ic+'</div>'
     + '<div class="val">'+val+'</div>'
     + '<div class="lbl">'+lbl+'</div>'
     + (sub?'<div class="sub">'+sub+'</div>':'')
+    + (drill?'<span class="see">Lihat detail →</span>':'')
     + '</div>';
 }
 
@@ -763,7 +791,7 @@ function hbar(items, opts){
   items.forEach(function(i){ max = Math.max(max, i.value); });
   return '<div class="hbars">' + items.map(function(i){
     var pct = (i.value/max*100).toFixed(1);
-    return '<div>'
+    return '<div'+(i.drill?' class="clickable" data-drill="'+esc(i.drill)+'" role="button" tabindex="0" title="Klik untuk melihat order"':'')+'>'
       + '<div class="hbar-label"><span>'+esc(i.label)+'</span><span class="hbar-val">'+nf(i.value)+(opts.unit||'')+'</span></div>'
       + '<div class="hbar-track"><div class="hbar-fill" style="width:'+pct+'%;background:'+i.color+'"></div></div>'
       + '</div>';
@@ -786,7 +814,7 @@ function donut(parts, size){
   });
   var lg = '<div class="legend">' + parts.map(function(p){
     var pct = Math.round(p.value/total*1000)/10;
-    return '<div class="row"><span class="sw" style="background:'+p.color+'"></span>'+esc(p.label)+'<span class="num">'+nf(p.value)+' · '+pct+'%</span></div>';
+    return '<div class="row'+(p.drill?' clickable':'')+'"'+(p.drill?' data-drill="'+esc(p.drill)+'" role="button" tabindex="0" title="Klik untuk melihat order"':'')+'><span class="sw" style="background:'+p.color+'"></span>'+esc(p.label)+'<span class="num">'+nf(p.value)+' · '+pct+'%</span></div>';
   }).join('') + '</div>';
   var svg = '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+segs+'<circle cx="'+c+'" cy="'+c+'" r="'+(r*0.62)+'" fill="#fff"/><text x="'+c+'" y="'+(c-4)+'" text-anchor="middle" font-size="22" font-weight="800" fill="#0f172a">'+nf(total)+'</text><text x="'+c+'" y="'+(c+14)+'" text-anchor="middle" font-size="10.5" fill="#64748b">order</text></svg>';
   return '<div class="flex-split">'+svg+lg+'</div>';
@@ -858,11 +886,12 @@ function renderOverview(){
   /* per divisi */
   var byD = {}; ROWS.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
   var divBars = Object.keys(byD).sort(function(a,b){return byD[b]-byD[a];}).map(function(d){
-    return {label:d, value:byD[d], color:divisiColor(d)};
+    return {label:d, value:byD[d], color:divisiColor(d), drill:'div:'+d};
   });
 
   /* status kedatangan (kolom baru) */
   var sParts = statusGroups();
+  sParts.forEach(function(p){ p.drill = 'stv:'+p.key; });
 
   /* per status kedatangan per divisi */
   var arrByDiv = divisiList().map(function(d){
@@ -879,7 +908,7 @@ function renderOverview(){
   /* top items */
   var itemCount = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); itemCount[n]=(itemCount[n]||0)+1; }); });
   var topItems = Object.keys(itemCount).map(function(n){return {label:n, value:itemCount[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
-  topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; });
+  topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; t.drill = 'item:'+t.label; });
 
   /* bars kedatangan per divisi (stack) */
   var arrBars = arrByDiv.map(function(d){
@@ -892,13 +921,13 @@ function renderOverview(){
   }).join('');
 
   return '<section class="tab-page">'
-    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh setiap 5 menit dari sheet "Response"</span></div>'
+    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh 5 menit · klik kartu kategori / legenda / bar untuk detail order</span></div>'
     + '<div class="grid cols-5">'
-    + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5')
-    + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9')
-    + kpi(IC.clock, nf(waitAppr), 'Approval Belum Lengkap', 'PO belum ada / approval belum lengkap', '#f59e0b')
-    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981')
-    + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444')
+    + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5', 'ov-all')
+    + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9', 'ov-po')
+    + kpi(IC.clock, nf(waitAppr), 'Approval Belum Lengkap', 'PO belum ada / approval belum lengkap', '#f59e0b', 'ov-waitappr')
+    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'ov-arrived')
+    + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444', 'ov-warn')
     + '</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Status Kedatangan</h3>'+donut(sParts, 168)+'</div>'
@@ -921,11 +950,11 @@ function renderJenis(){
   top.forEach(function(t,i){ t.color=['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b','#ef4444'][i%10]; });
 
   var byKep = {}; ROWS.forEach(function(r){ byKep[r.keperluan]=(byKep[r.keperluan]||0)+1; });
-  var kepParts = Object.keys(byKep).sort(function(a,b){return byKep[b]-byKep[a];}).map(function(k){ return {label:k, value:byKep[k], color:['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][Object.keys(byKep).indexOf(k)%6]}; });
+  var kepParts = Object.keys(byKep).sort(function(a,b){return byKep[b]-byKep[a];}).map(function(k){ return {label:k, value:byKep[k], color:['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][Object.keys(byKep).indexOf(k)%6], drill:'kep:'+k}; });
 
   var qtySum = items.reduce(function(s,i){ return s+i.qty; }, 0);
   var qtyByName = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); qtyByName[n]=(qtyByName[n]||0)+q.qty; }); });
-  var topQty = Object.keys(qtyByName).map(function(n){return {label:n, value:qtyByName[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
+  var topQty = Object.keys(qtyByName).map(function(n){return {label:n, value:qtyByName[n], drill:'item:'+n};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
 
   var itemRows = items.map(function(i){
     return '<tr>'
@@ -951,7 +980,7 @@ function renderJenis(){
     + '<div class="card"><h3>Item Paling Sering Dipesan</h3>'+hbar(top)+'</div>'
     + '<div class="card"><h3>Keperluan Order</h3>'+donut(kepParts, 168)+'</div>'
     + '</div>'
-    + '<div class="card" style="margin-top:16px"><h3>Total Kuantitas per Item (Top 10)</h3>'+hbar(topQty.map(function(t){return {label:t.label, value:t.value, color:'#4f46e5'};}))+'</div>'
+    + '<div class="card" style="margin-top:16px"><h3>Total Kuantitas per Item (Top 10)</h3>'+hbar(topQty.map(function(t){return {label:t.label, value:t.value, color:'#4f46e5', drill:'item:'+t.label};}))+'</div>'
     + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div></div>'
     + '</section>';
 }
@@ -978,7 +1007,7 @@ function renderDivisi(){
       + '</div>';
   }).join('');
 
-  var bars = list.map(function(d){ return {label:d, value:byD[d], color:divisiColor(d)}; });
+  var bars = list.map(function(d){ return {label:d, value:byD[d], color:divisiColor(d), drill:'div:'+d}; });
 
   return '<section class="tab-page">'
     + '<div class="toolbar"><span class="count-pill">'+nf(list.length)+' divisi aktif</span><span class="spacer"></span><span class="mini">Klik kartu divisi untuk filter di Tabel Detail</span></div>'
@@ -1041,28 +1070,28 @@ function renderStatus(){
   }).join('') : '<tr><td colspan="9"><div class="empty">Semua order sudah lengkap approval ✓</div></td></tr>';
 
   var steps = [
-    {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5'},
-    {cap:'PO Dibuat', n:ROWS.filter(function(r){return r.hasPO;}).length, color:'#0ea5e9'},
-    {cap:'Approval 1', n:a1ok, color:'#8b5cf6'},
-    {cap:'Approval 2', n:a2ok, color:'#10b981'}
+    {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5', drill:'ov-all'},
+    {cap:'PO Dibuat', n:ROWS.filter(function(r){return r.hasPO;}).length, color:'#0ea5e9', drill:'ov-po'},
+    {cap:'Approval 1', n:a1ok, color:'#8b5cf6', drill:'ap-a1'},
+    {cap:'Approval 2', n:a2ok, color:'#10b981', drill:'ap-a2'}
   ];
   var stepper = steps.map(function(s, i){
     var pct = Math.round(s.n/total*100);
     var cls = pct===100 ? ' done' : '';
-    return '<div class="step'+cls+'"><div class="num">'+ (i===0? nf(total) : nf(s.n)) +'</div><div class="cap">'+s.cap+'</div><div class="bar"><div class="fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>';
+    return '<div class="step'+cls+'"'+(s.drill?' data-drill="'+s.drill+'" role="button" tabindex="0" title="Klik untuk melihat order"':'')+'><div class="num">'+ (i===0? nf(total) : nf(s.n)) +'</div><div class="cap">'+s.cap+'</div><div class="bar"><div class="fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>';
   }).join('');
 
   return '<section class="tab-page">'
     + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu perhatian approval</span><span class="spacer"></span><span class="mini">Status Kedatangan: '+nf(arrived)+' sudah · '+nf(notArrived)+' belum</span></div>'
     + '<div class="card" style="margin-bottom:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses (Pipeline)</h3><div class="stepper">'+stepper+'</div></div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
-    + kpi(IC.check, nf(done), 'Approval Lengkap', 'Approval 1 & 2 lengkap', '#10b981')
-    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO ada, approval belum lengkap', '#f59e0b')
-    + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'Nomor PO belum dibuat', '#ef4444')
+    + kpi(IC.check, nf(done), 'Approval Lengkap', 'Approval 1 & 2 lengkap', '#10b981', 'st-done')
+    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO ada, approval belum lengkap', '#f59e0b', 'st-wait')
+    + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'Nomor PO belum dibuat', '#ef4444', 'st-nopo')
     + '</div>'
     + '<div class="grid cols-2" style="margin-bottom:16px">'
-    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981')
-    + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b')
+    + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'st-arr')
+    + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b', 'st-notarr')
     + '</div>'
     + '<div class="card"><h3>⚠ Order yang Belum Lengkap Approval</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
     + '</section>';
@@ -1108,10 +1137,10 @@ function renderAging(){
     + '<label class="sync-pill wrap-on" style="cursor:pointer" title="Order yang barangnya sudah datang disembunyikan dari daftar aging"><input type="checkbox" id="showArrivedChk"'+(state.showArrivedAging?' checked':'')+' style="accent-color:#10b981"> Tampilkan yang sudah datang ('+nf(excluded)+')</label>'
     + '</div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
-    + kpi(IC.alert, nf(crit), 'Kritis', 'umur ≥ '+state.critTh+' hari — segera follow-up', '#ef4444')
-    + kpi(IC.clock, nf(warn), 'Warning', 'umur ≥ '+state.warnTh+' hari', '#f59e0b')
-    + kpi(IC.check, nf(ok), 'Aman', 'umur < '+state.warnTh+' hari', '#10b981')
-    + kpi(IC.box, nf(excluded), 'Sudah Datang', 'tidak dihitung aging — barang telah tiba', '#0ea5e9')
+    + kpi(IC.alert, nf(crit), 'Kritis', 'umur ≥ '+state.critTh+' hari — segera follow-up', '#ef4444', 'ag-crit')
+    + kpi(IC.clock, nf(warn), 'Warning', 'umur ≥ '+state.warnTh+' hari', '#f59e0b', 'ag-warn')
+    + kpi(IC.check, nf(ok), 'Aman', 'umur < '+state.warnTh+' hari', '#10b981', 'ag-ok')
+    + kpi(IC.box, nf(excluded), 'Sudah Datang', 'tidak dihitung aging — barang telah tiba', '#0ea5e9', 'ag-arr')
     + '</div>'
     + '<div class="card"><h3>Daftar Order Berdasarkan Umur (terlama dulu)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Umur</th><th>Blocker</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
     + '<p class="hint">Baris diurutkan dari umur terlama. Order dengan Status Kedatangan <b>Sudah</b> tidak dihitung sebagai warning/kritis karena barangnya telah tiba ('+nf(excluded)+' order dikecualikan) — centang "Tampilkan yang sudah datang" untuk melihatnya. Order lama ditandai kuning (warning) / merah (kritis); kolom "Blocker" menunjukkan alasan belum selesai (tanpa PO / approval belum).</p></div>'
@@ -1231,6 +1260,92 @@ function render(){
   }
   main.innerHTML = html;
   bindSection();
+}
+
+/* ============ DRILL-DOWN: klik kategori box → daftar order ============ */
+function drillSpec(key){
+  var byAge = function(f){ return ROWS.filter(f).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); }); };
+  var k = String(key || '');
+  if(k==='ov-all')      return {t:'Semua Order (PR)',            c:'#4f46e5', rows:byAge(function(r){ return true; })};
+  if(k==='ov-po')       return {t:'PO Dibuat',                   c:'#0ea5e9', rows:byAge(function(r){ return r.hasPO; })};
+  if(k==='ov-waitappr') return {t:'Approval Belum Lengkap',      c:'#f59e0b', rows:byAge(function(r){ return r.flowKey==='wait' || r.flowKey==='nopo'; })};
+  if(k==='ov-arrived')  return {t:'Sudah Datang',                c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
+  if(k==='ov-warn')     return {t:'Warning Aging',               c:'#ef4444', rows:byAge(function(r){ var c2=agingClass(r); return c2==='warn' || c2==='crit'; })};
+  if(k==='ag-crit')     return {t:'Aging Kritis',  s:'umur ≥ '+state.critTh+' hari · belum datang', c:'#ef4444', rows:byAge(function(r){ return agingClass(r)==='crit'; })};
+  if(k==='ag-warn')     return {t:'Aging Warning', s:'umur ≥ '+state.warnTh+' hari · belum datang', c:'#f59e0b', rows:byAge(function(r){ return agingClass(r)==='warn'; })};
+  if(k==='ag-ok')       return {t:'Aman',          s:'umur < '+state.warnTh+' hari · belum datang', c:'#10b981', rows:byAge(function(r){ return agingClass(r)==='ok'; })};
+  if(k==='ag-arr')      return {t:'Sudah Datang',  s:'tidak dihitung aging — barang telah tiba',    c:'#0ea5e9', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
+  if(k==='st-done')     return {t:'Approval Lengkap',  c:'#10b981', rows:byAge(function(r){ return r.flowKey==='done'; })};
+  if(k==='st-wait')     return {t:'Menunggu Approval', c:'#f59e0b', rows:byAge(function(r){ return r.hasPO && r.flowKey==='wait'; })};
+  if(k==='st-nopo')     return {t:'Belum Ada PO',      c:'#ef4444', rows:byAge(function(r){ return !r.hasPO; })};
+  if(k==='st-arr')      return {t:'Sudah Datang',      c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
+  if(k==='st-notarr')   return {t:'Belum Datang',      c:'#f59e0b', rows:byAge(function(r){ return r.statusKey!=='sudah'; })};
+  if(k==='ap-a1')       return {t:'Approval 1 OK',     c:'#8b5cf6', rows:byAge(function(r){ return r.appr1; })};
+  if(k==='ap-a2')       return {t:'Approval 2 OK',     c:'#10b981', rows:byAge(function(r){ return r.appr2; })};
+  if(k.indexOf('div:')===0){
+    var dv = k.slice(4);
+    return {t:'Divisi: '+dv, c:divisiColor(dv), rows:byAge(function(r){ return r.divisi===dv; })};
+  }
+  if(k.indexOf('stv:')===0){
+    var kk = k.slice(4);
+    var lbl = kk==='kosong' ? '(belum diisi)' : ((ROWS.filter(function(r){ return r.statusKey===kk; })[0] || {}).status || kk);
+    return {t:'Status Kedatangan: '+lbl, c:'#4f46e5', rows:byAge(function(r){ return r.statusKey===kk; })};
+  }
+  if(k.indexOf('kep:')===0){
+    var kp = k.slice(4);
+    return {t:'Keperluan Order: '+kp, c:'#8b5cf6', rows:byAge(function(r){ return r.keperluan===kp; })};
+  }
+  if(k.indexOf('item:')===0){
+    var nm = k.slice(5).toLowerCase();
+    return {t:'Item: '+nm, c:'#4f46e5', rows:byAge(function(r){ return r.items.some(function(it){ return (splitQty(it).name || '').toLowerCase()===nm; }); })};
+  }
+  return null;
+}
+
+function openDrill(key){
+  var spec = drillSpec(key);
+  if(!spec){ toast('Kategori tidak dikenal'); return; }
+  var rows = spec.rows;
+  var trs = rows.length ? rows.map(function(r){
+    var ac = agingClass(r);
+    var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
+    var k = rowKey(r);
+    return '<tr class="'+cls+'">'
+      + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+      + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
+      + '<td class="mono">'+(r.po?esc(r.po):'—')+'</td>'
+      + '<td>'+esc(r.items[0]||'')+(r.items.length>1 ? ' <span class="mini">+'+(r.items.length-1)+' item</span>' : '')+'</td>'
+      + '<td>'+statusBadge(r)+'</td>'
+      + '<td>'+agingBadge(r)+'</td>'
+      + '<td><div style="display:flex;gap:6px">'
+      + '<button class="btn-act edit" data-edit="'+esc(k)+'" title="Edit order">'+IC.edit+'</button>'
+      + '<button class="btn-act del" data-del="'+esc(k)+'" title="Hapus order">'+IC.trash+'</button>'
+      + '</div></td>'
+      + '</tr>';
+  }).join('') : '<tr><td colspan="8"><div class="empty">Tidak ada order dalam kategori ini</div></td></tr>';
+
+  var dot = document.getElementById('drillDot');
+  if(dot) dot.style.background = spec.c;
+  var tEl = document.getElementById('drillTitle');
+  if(tEl) tEl.innerHTML = esc(spec.t)+' <span class="mini">· '+nf(rows.length)+' order</span>'+(spec.s ? ' <span class="mini">('+esc(spec.s)+')</span>' : '');
+  var body = document.getElementById('drillBody');
+  if(body){
+    body.innerHTML = '<div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Status Kedatangan</th><th>Umur</th><th>Aksi</th></tr></thead><tbody>'+trs+'</tbody></table></div>';
+    body.querySelectorAll('[data-edit]').forEach(function(el){
+      el.addEventListener('click', function(){ closeDrill(); openEditModal(el.getAttribute('data-edit')); });
+    });
+    body.querySelectorAll('[data-del]').forEach(function(el){
+      el.addEventListener('click', function(){ closeDrill(); confirmDelete(el.getAttribute('data-del')); });
+    });
+  }
+  var back = document.getElementById('drillBack');
+  if(back) back.style.display = 'flex';
+}
+
+function closeDrill(){
+  var back = document.getElementById('drillBack');
+  if(back) back.style.display = 'none';
 }
 
 /* ============ EVENTS ============ */
@@ -1568,29 +1683,31 @@ document.getElementById('autoSync').addEventListener('change', function(e){
   }
 });
 
+/* ===== drill-down global: klik box kategori di semua tab ===== */
+document.addEventListener('click', function(e){
+  var el = e.target && e.target.closest ? e.target.closest('[data-drill]') : null;
+  if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); }
+});
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){ closeDrill(); return; }
+  if(e.key==='Enter'){
+    var el = e.target && e.target.closest ? e.target.closest('[data-drill]') : null;
+    if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); }
+  }
+});
+(function(){
+  var db = document.getElementById('drillBack');
+  if(db) db.addEventListener('click', function(e){ if(e.target===db) closeDrill(); });
+  var dc = document.getElementById('drillClose');
+  if(dc) dc.addEventListener('click', closeDrill);
+})();
+
 /* init dengan snapshot dulu agar cepat tampil */
 var _subEl = document.querySelector('.brand .sub');
 if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '" · Auto-sync';
 setRows(loadFromSnapshot(), false, null);
 /* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
 if(document.getElementById('autoSync').checked){
-  AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
-}
-refresh(); /* lalu coba live segera */
-
-/* update service worker jika versi baru tersedia */
-if('serviceWorker' in navigator && navigator.serviceWorker.controller){
-  navigator.serviceWorker.addEventListener('controllerchange', function(){
-    /* versi baru aktif -> reload agar frame html terbaru */
-    if(!location.hash) location.reload();
-  });
-}
-
-})();
-</script>
-</body>
-</html>
-entById('autoSync').checked){
   AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
 }
 refresh(); /* lalu coba live segera */

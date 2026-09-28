@@ -96,3 +96,14 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
   - **Selesai** → PO ada + Approval 1 & 2 lengkap.
 - **Warning aging** → umur order ≥ 7 hari (default), **Kritis** → ≥ 14 hari.
 - **Pengecualian aging**: order dengan Status Kedatangan **"Sudah"** tidak dihitung sebagai warning/kritis dan tidak muncul di daftar Aging Order (barangnya telah tiba). Tersedia checkbox "Tampilkan yang sudah datang" untuk tetap menampilkannya. Status "Sebagian" **tetap** dihitung karena sisanya masih perlu follow-up.
+
+## Stabilitas & performa
+
+- **Anti-race sync**: refresh manual, auto-sync, dan refresh setelah simpan tidak bisa berjalan bersamaan.
+- **Timeout jaringan**: baca sheet 20 dtk, tulis Apps Script 30 dtk — koneksi menggantung tidak lagi mengunci tombol/pill sync.
+- **Data tahan banting**: bila sync gagal setelah data pernah masuk, data terakhir tetap ditampilkan (tidak diganti snapshot lama); banner + tombol "Coba lagi" muncul.
+- **Proteksi tulis**: sebelum edit/hapus, bila data >60 detik otomatis di-sync ulang dan baris diverifikasi — mencegah menulis ke baris yang salah.
+- **Dedupe cerdas**: baris duplikat dibuang, tetapi baris yang hanya berbeda Status Kedatangan tetap dihitung.
+- **Hemat baterai**: auto-sync dihentikan saat tab di-background; sync langsung saat tab kembali terlihat dan data sudah stale >5 menit.
+- **Pencarian di-debounce** (160 ms) dan formatter angka di-cache.
+- **Service worker tahan gagal**: satu aset gagal di-precache tidak menggagalkan update SW; cache key network-first diperbaiki.

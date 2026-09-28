@@ -451,7 +451,7 @@ var SNAPSHOT = [
 function dedupeRows(rows){
   var seen = {};
   return (rows || []).filter(function(r){
-    var sig = [r.ts, r.tgl, r.divisi, r.pr, r.po, r.a1, r.a2, r.ket, r.jenis, r.keperluan].join('\u0001');
+    var sig = [r.ts, r.tgl, r.divisi, r.pr, r.po, r.a1, r.a2, r.ket, r.jenis, r.keperluan, r.status, r.arrivalRaw].join('\u0001');
     if(seen[sig]) return false;
     seen[sig] = true;
     return true;
@@ -478,8 +478,8 @@ function persistTh(){
 (function(){
   try{
     var s = JSON.parse(localStorage.getItem(TH_KEY) || 'null');
-    if(s && isFinite(s.w) && s.w >= 1) state.warnTh = Math.round(s.w);
-    if(s && isFinite(s.c) && s.c >= 1) state.critTh = Math.round(s.c);
+    if(s && isFinite(s.w) && s.w >= 1) state.warnTh = Math.min(365, Math.round(s.w));
+    if(s && isFinite(s.c) && s.c >= 1) state.critTh = Math.min(365, Math.round(s.c));
     if(state.critTh < state.warnTh) state.critTh = state.warnTh;
   }catch(e){}
 })();
@@ -509,7 +509,8 @@ function arrivalInfo(v){
 
 /* ============ UTIL ============ */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function nf(n){ return new Intl.NumberFormat('id-ID').format(n||0); }
+var _nfmt = null;
+function nf(n){ if(!_nfmt) _nfmt = new Intl.NumberFormat('id-ID'); return _nfmt.format(n||0); }
 function parseDMY(s){
   if(!s) return null;
   var m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -596,9 +597,23 @@ function loadFromSnapshot(){
   });
 }
 
+function fetchWithTimeout(url, opts, ms, timeoutMsg){
+  /* fetch + batas waktu: koneksi menggantung tidak mengunci UI selamanya */
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, ms) : null;
+  var p = fetch(url, ctrl ? Object.assign({}, opts || {}, { signal: ctrl.signal }) : opts);
+  if(ctrl){
+    p = p.catch(function(err){
+      if(err && (err.name === 'AbortError' || /abort/i.test(String(err)))) throw new Error(timeoutMsg);
+      throw err;
+    }).finally(function(){ clearTimeout(timer); });
+  }
+  return p;
+}
+
 function loadLive(urlOverride){
   var url = urlOverride || GVURL;
-  return fetch(url, {cache:'no-store'}).then(function(res){
+  return fetchWithTimeout(url, {cache:'no-store'}, 20000, 'Waktu tunggu sync habis (20 dtk)').then(function(res){
     if(!res.ok) throw new Error('HTTP '+res.status);
     return res.text();
   }).then(function(text){
@@ -673,7 +688,14 @@ function uniq(ps){
   return 'k' + (s>>>0).toString(36);
 }
 
+var SYNC_BUSY = false;
+function bindRetryLink(){
+  var rl = document.getElementById('retryLink');
+  if(rl) rl.addEventListener('click', function(){ hideSyncBanner(); refresh(); });
+}
 async function refresh(){
+  if(SYNC_BUSY) return; /* anti-race: klik manual + auto-sync + refresh setelah simpan */
+  SYNC_BUSY = true;
   var btn = document.getElementById('refreshBtn');
   var dot = document.getElementById('syncDot'); dot.className='dot load';
   var txt = document.getElementById('syncText'); txt.textContent='Memuat…';
@@ -687,12 +709,21 @@ async function refresh(){
     toast('Sinkron sukses · '+ROWS.length+' baris'+ (DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'') +' · '+timeStr(LAST_SYNC));
   }catch(e){
     SYNC_ERROR = String(e && e.message || e);
-    setRows(loadFromSnapshot(), false, SYNC_ERROR);
-    toast('Gagal sinkron: '+SYNC_ERROR);
-    showSyncBanner('Sinkron gagal: <b>'+esc(SYNC_ERROR)+'</b>. Dashboard menampilkan snapshot offline. Pastikan spreadsheet masih dibagikan — Share → "Anyone with the link" → Viewer. <a href="javascript:void(0)" id="retryLink">Coba lagi</a>.');
-    var rl = document.getElementById('retryLink');
-    if(rl) rl.addEventListener('click', function(){ hideSyncBanner(); refresh(); });
+    if(ROWS.length){
+      /* sudah pernah dapat data valid → PERTAHANKAN data terakhir, jangan turun ke snapshot lama */
+      LIVE = false;
+      updateSyncPill(SYNC_ERROR);
+      showSyncBanner('Sinkron gagal: <b>'+esc(SYNC_ERROR)+'</b>. Menampilkan <b>data terakhir yang tersinkron</b>. <a href="javascript:void(0)" id="retryLink">Coba lagi</a>.');
+      bindRetryLink();
+      toast('Gagal sync — menampilkan data terakhir ('+timeStr(LAST_SYNC)+')');
+    }else{
+      setRows(loadFromSnapshot(), false, SYNC_ERROR);
+      toast('Gagal sinkron: '+SYNC_ERROR);
+      showSyncBanner('Sinkron gagal: <b>'+esc(SYNC_ERROR)+'</b>. Dashboard menampilkan snapshot offline. Pastikan spreadsheet masih dibagikan — Share → "Anyone with the link" → Viewer. <a href="javascript:void(0)" id="retryLink">Coba lagi</a>.');
+      bindRetryLink();
+    }
   }finally{
+    SYNC_BUSY = false;
     btn.disabled = false;
   }
 }
@@ -733,12 +764,12 @@ function callScript(action, rowId, values){
   if(!SCRIPT_URL){
     return Promise.reject(new Error(scriptHint()));
   }
-  return fetch(SCRIPT_URL, {
+  return fetchWithTimeout(SCRIPT_URL, {
     method:'POST',
     /* text/plain wajib: membuat request jadi "simple request" (tanpa preflight CORS) */
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ sheetId: SHEET_ID, sheetName: SHEET_NAME, action: action, rowId: rowId, values: values || {} })
-  }).then(function(r){ return r.text(); }).then(function(t){
+  }, 30000, 'Server Apps Script tidak merespons (30 dtk)').then(function(r){ return r.text(); }).then(function(t){
     var j = null;
     try{ j = JSON.parse(t); }catch(e){ throw new Error('Respons bukan JSON: ' + String(t).slice(0,140)); }
     if(j && j.ok) return j;
@@ -1383,7 +1414,14 @@ function bindSection(){
   });
 
   var q = document.getElementById('qInput');
-  if(q){ q.addEventListener('input', function(){ state.q=q.value; renderTableOnly(); }); }
+  if(q){
+    var qTimer = null;
+    q.addEventListener('input', function(){
+      state.q = q.value;
+      clearTimeout(qTimer);
+      qTimer = setTimeout(renderTableOnly, 160); /* debounce: render setelah user berhenti mengetik */
+    });
+  }
   var ds = document.getElementById('divSel');
   if(ds){ ds.addEventListener('change', function(){ state.divFilter=ds.value; renderTableOnly(); }); }
   var ss = document.getElementById('stSel');
@@ -1457,12 +1495,13 @@ function renderTableOnly(){
 /* ============ EXPORT ============ */
 function exportCSV(){
   var rows = state.exportRows && state.exportRows.length ? state.exportRows : ROWS;
-  var head = ['Tanggal','Divisi','Nomor PR','Nomor PO','Jenis Order','Approval 1','Approval 2','Status','Umur (hari)','Keterangan','Keperluan Order'];
+  var head = ['Tanggal','Divisi','Nomor PR','Nomor PO','Jenis Order','Approval 1','Approval 2','Status Kedatangan','Umur (hari)','Keterangan','Keperluan Order'];
   var lines = [head.join(',')];
   rows.forEach(function(r){
     var cells = [r.tgl, r.divisi, r.pr, r.po, r.jenis.replace(/\n+/g,'; '), r.a1, r.a2, r.status, r.age==null?'':r.age, r.ket, r.keperluan];
     lines.push(cells.map(function(c){
       c = String(c==null?'':c);
+      if(/^[=+@]/.test(c)) c = "'" + c; /* cegah formula injection saat dibuka di Excel */
       return '"'+c.replace(/"/g,'""')+'"';
     }).join(','));
   });
@@ -1608,14 +1647,32 @@ function buildVals(forToken){
   return v;
 }
 
+/* Pastikan data segar sebelum menulis: bila data >60 dtk, sync dulu supaya
+   edit/hapus tidak mengenai baris yang salah (posisi baris di sheet bisa berubah). */
+async function ensureFreshForWrite(){
+  if(!LAST_SYNC || (Date.now() - LAST_SYNC.getTime()) > 60000){
+    await refresh();
+    if(SYNC_BUSY){
+      /* sync lain sedang berjalan — tunggu sebentar hingga selesai (maks ±5 dtk) */
+      for(var i=0;i<50 && SYNC_BUSY;i++){ await new Promise(function(res){ setTimeout(res,100); }); }
+    }
+  }
+}
+
 async function handleSave(){
   var saveBtn = document.getElementById('modalSave');
   saveBtn.dataset.mode = saveBtn.dataset.mode || 'save';
   if(saveBtn.dataset.mode === 'delete'){
-    var r = findRowByKey(MODAL_ROWKEY);
-    if(!r){ toast('Baris tidak ditemukan'); return; }
-    saveBtn.disabled = true; saveBtn.textContent = 'Menghapus…';
+    saveBtn.disabled = true; saveBtn.textContent = 'Memeriksa data…';
     try{
+      await ensureFreshForWrite();
+      var r = findRowByKey(MODAL_ROWKEY);
+      if(!r){
+        toast('Baris sudah berubah/dihapus di spreadsheet — data dimuat ulang, silakan periksa lagi');
+        saveBtn.disabled = false; saveBtn.textContent = 'Ya, Hapus';
+        return;
+      }
+      saveBtn.textContent = 'Menghapus…';
       await updateGoogleSheet(rowKey(r), 'delete', null);
       toast('Order dihapus dari spreadsheet');
       closeModal();
@@ -1633,6 +1690,12 @@ async function handleSave(){
   saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan…';
   try{
     if(isEdit){
+      await ensureFreshForWrite();
+      if(!findRowByKey(MODAL_ROWKEY)){
+        toast('Baris sudah berubah/dihapus di spreadsheet — data dimuat ulang, silakan periksa lagi');
+        saveBtn.disabled = false; saveBtn.textContent = 'Simpan';
+        return;
+      }
       await updateGoogleSheet(MODAL_ROWKEY, 'edit', vals);
       toast('Order diperbarui di spreadsheet');
     } else {
@@ -1674,11 +1737,14 @@ window.addEventListener('beforeinstallprompt', function(e){
   deferredPrompt = e;
   var b = document.getElementById('installBtn');
   b.style.display = 'inline-flex';
-  b.addEventListener('click', function(){
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function(){ deferredPrompt = null; b.style.display = 'none'; });
-  });
+  if(!b._pfsBound){ /* pasang listener sekali saja — event ini bisa fire berulang */
+    b._pfsBound = true;
+    b.addEventListener('click', function(){
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(){ deferredPrompt = null; b.style.display = 'none'; });
+    });
+  }
 });
 window.addEventListener('appinstalled', function(){
   deferredPrompt = null;
@@ -1694,7 +1760,7 @@ if('serviceWorker' in navigator){
 document.getElementById('autoSync').addEventListener('change', function(e){
   clearInterval(AUTO_TIMER); AUTO_TIMER = null;
   if(e.target.checked){
-    AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
+    AUTO_TIMER = setInterval(function(){ if(!document.hidden) refresh(); }, 5*60*1000);
     toast('Auto-sync aktif (tiap 5 menit)');
   } else {
     toast('Auto-sync nonaktif');
@@ -1726,8 +1792,14 @@ if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '
 setRows(loadFromSnapshot(), false, null);
 /* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
 if(document.getElementById('autoSync').checked){
-  AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
+  AUTO_TIMER = setInterval(function(){ if(!document.hidden) refresh(); }, 5*60*1000);
 }
+/* tab kembali terlihat & data sudah stale >5 menit → sync segera (hemat baterai saat background) */
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && document.getElementById('autoSync').checked && LAST_SYNC && (Date.now() - LAST_SYNC.getTime() > 5*60*1000)){
+    refresh();
+  }
+});
 refresh(); /* lalu coba live segera */
 
 /* update service worker jika versi baru tersedia */

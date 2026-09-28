@@ -3,7 +3,7 @@
    - index.html & sw.js & browserconfig.xml : selalu network-first (biar update kode langsung tampil)
    - aset statis (ikon/manifest)            : cache-first (cepat & aman)
    - data Google Sheets (cross-origin)      : tidak pernah di-cache (selalu network) */
-const CACHE = 'pfs-v16';
+const CACHE = 'pfs-v17';
 const STATIC = [
   './manifest.webmanifest',
   './browserconfig.xml',
@@ -25,7 +25,10 @@ const NETWORK_FIRST = ['./', './index.html', './sw.js', './browserconfig.xml'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting())
+    /* per-aset: satu file gagal tidak menggagalkan seluruh update SW */
+    caches.open(CACHE)
+      .then((c) => Promise.allSettled(STATIC.map((u) => c.add(u))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -57,7 +60,7 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           if (res && res.ok) {
             const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put('./index.html', clone));
+            caches.open(CACHE).then((c) => c.put(req, clone));
           }
           return res;
         })

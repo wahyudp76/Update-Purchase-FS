@@ -228,7 +228,8 @@ tr.row-crit:hover{background:#ffeded!important}
 .empty{padding:34px;text-align:center;color:var(--muted);font-size:13px}
 .range-wrap{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;flex-wrap:wrap}
 .range-wrap label{font-size:12px;font-weight:700;color:var(--muted)}
-input[type=range]{accent-color:var(--accent);width:180px}
+.num-in{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;color:var(--txt);background:#fff}
+.num-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
 .hint{font-size:12px;color:var(--muted);margin-top:8px}
 .mini{font-size:12px;color:var(--muted)}
 .count-pill{font-size:12px;color:var(--muted);font-weight:600;padding:7px 12px;background:#fff;border:1px solid var(--line);border-radius:999px}
@@ -467,6 +468,20 @@ var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, c
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
   if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
+})();
+
+/* ===== Ambang aging disimpan di perangkat (localStorage) — tidak reset saat refresh ===== */
+var TH_KEY = 'pfs-thresholds-v1';
+function persistTh(){
+  try{ localStorage.setItem(TH_KEY, JSON.stringify({ w:state.warnTh, c:state.critTh })); }catch(e){ /* mode privat / iframe sandbox */ }
+}
+(function(){
+  try{
+    var s = JSON.parse(localStorage.getItem(TH_KEY) || 'null');
+    if(s && isFinite(s.w) && s.w >= 1) state.warnTh = Math.round(s.w);
+    if(s && isFinite(s.c) && s.c >= 1) state.critTh = Math.round(s.c);
+    if(state.critTh < state.warnTh) state.critTh = state.warnTh;
+  }catch(e){}
 })();
 
 var TABS = [
@@ -1133,7 +1148,7 @@ function renderAging(){
 
   return '<section class="tab-page">'
     + '<div class="toolbar">'
-    + '<div class="range-wrap"><label>Ambang warning:</label><input type="range" id="warnRange" min="1" max="30" value="'+state.warnTh+'"><span class="mini" id="warnRangeLbl">≥ '+state.warnTh+' hari</span><label>Ambang kritis:</label><input type="range" id="critRange" min="1" max="60" value="'+state.critTh+'"><span class="mini" id="critRangeLbl">≥ '+state.critTh+' hari</span></div>'
+    + '<div class="range-wrap"><label for="warnNum">Ambang warning:</label><input type="number" id="warnNum" class="num-in" min="1" max="365" step="1" value="'+state.warnTh+'" title="Ketik jumlah hari"><span class="mini">hari</span><label for="critNum">Ambang kritis:</label><input type="number" id="critNum" class="num-in" min="1" max="365" step="1" value="'+state.critTh+'" title="Ketik jumlah hari"><span class="mini">hari</span></div>'
     + '<label class="sync-pill wrap-on" style="cursor:pointer" title="Order yang barangnya sudah datang disembunyikan dari daftar aging"><input type="checkbox" id="showArrivedChk"'+(state.showArrivedAging?' checked':'')+' style="accent-color:#10b981"> Tampilkan yang sudah datang ('+nf(excluded)+')</label>'
     + '</div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
@@ -1384,27 +1399,30 @@ function bindSection(){
     });
   });
 
-  var wr = document.getElementById('warnRange');
-  if(wr){
-    wr.addEventListener('input', function(){
-      state.warnTh = +wr.value;
-      var c = document.getElementById('critRange');
-      if(state.warnTh > state.critTh){ state.critTh = state.warnTh; c.value = state.critTh; }
-      document.getElementById('warnRangeLbl').textContent = '≥ '+state.warnTh+' hari';
-      document.getElementById('critRangeLbl').textContent = '≥ '+state.critTh+' hari';
-      render();
-    });
+  /* ambang aging: ketik angka → langsung dipakai & tersimpan (tidak reset saat refresh) */
+  function commitThreshold(){
+    var wn = document.getElementById('warnNum');
+    var cn = document.getElementById('critNum');
+    var wv = wn ? parseInt(wn.value, 10) : NaN;
+    var cv = cn ? parseInt(cn.value, 10) : NaN;
+    if(!isFinite(wv) || wv < 1) wv = state.warnTh;   /* kosong/invalid → pakai nilai lama */
+    if(!isFinite(cv) || cv < 1) cv = state.critTh;
+    wv = Math.min(365, wv); cv = Math.min(365, cv);
+    state.warnTh = wv;
+    if(cv < wv) cv = wv;                              /* kritis tidak boleh < warning */
+    state.critTh = cv;
+    persistTh();
+    render();
   }
-  var cr = document.getElementById('critRange');
-  if(cr){
-    cr.addEventListener('input', function(){
-      state.critTh = +cr.value;
-      var w = document.getElementById('warnRange');
-      if(state.critTh < state.warnTh){ state.warnTh = state.critTh; w.value = state.warnTh; }
-      document.getElementById('warnRangeLbl').textContent = '≥ '+state.warnTh+' hari';
-      document.getElementById('critRangeLbl').textContent = '≥ '+state.critTh+' hari';
-      render();
-    });
+  var wNum = document.getElementById('warnNum');
+  if(wNum){
+    wNum.addEventListener('change', commitThreshold);
+    wNum.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); wNum.blur(); } });
+  }
+  var cNum = document.getElementById('critNum');
+  if(cNum){
+    cNum.addEventListener('change', commitThreshold);
+    cNum.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); cNum.blur(); } });
   }
   var sa = document.getElementById('showArrivedChk');
   if(sa){

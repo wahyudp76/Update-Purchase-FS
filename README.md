@@ -9,7 +9,7 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
   - **Jenis Order** — rincian per item/barang, kategori keperluan, top item & total kuantitas.
   - **Per Divisi** — kartu per divisi (klik untuk filter di Tabel Detail).
   - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
-  - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari), bisa diatur slider-nya.
+  - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh.
   - **Tabel Detail** — filter (divisi, status), pencarian, sort kolom, dan export CSV.
 
 ## Sumber data

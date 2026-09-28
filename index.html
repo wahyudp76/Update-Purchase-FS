@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Order PR/PO">
 
-  <!-- Favicon & icons -->
-  <link rel="icon" href="icons/favicon.ico" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <!-- Favicon & icons (?v=2 = cache-bust, ganti angka bila ikon di-update lagi) -->
+  <link rel="icon" href="icons/favicon.ico?v=2" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=2">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=2">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=2">
   <link rel="mask-icon" href="icons/icon.svg" color="#4f46e5">
 
   <!-- Windows tile -->
   <meta name="msapplication-TileColor" content="#4f46e5">
-  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=2">
   <meta name="msapplication-config" content="browserconfig.xml">
   <style>
 :root{
@@ -67,9 +67,9 @@ header.top{
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand .logo{
   width:38px;height:38px;border-radius:11px;flex-shrink:0;
-  background:linear-gradient(135deg,#4f46e5,#0ea5e9);
-  display:flex;align-items:center;justify-content:center;color:#fff;
+  display:flex;align-items:center;justify-content:center;
   box-shadow:0 6px 14px -6px rgba(79,70,229,.55);
+  overflow:hidden;
 }
 .brand h1{font-size:16.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
 .brand .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -283,7 +283,20 @@ input[type=range]{accent-color:var(--accent);width:180px}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.2h5v1.6h-5z" fill="currentColor" stroke="none"/><path d="M8.6 4.8h6.8A1.6 1.6 0 0 1 17 6.4v13A1.6 1.6 0 0 1 15.4 21H8.6A1.6 1.6 0 0 1 7 19.4v-13A1.6 1.6 0 0 1 8.6 4.8z"/><path d="m9.7 13.4 1.9 1.9 3.6-4.1"/><path d="M10 17.4h4"/></svg>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgHdr" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4338ca"/><stop offset=".42" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5e9"/>
+            </linearGradient>
+          </defs>
+          <rect width="100" height="100" rx="28" fill="url(#lgHdr)"/>
+          <rect x="22" y="19.5" width="56" height="68" rx="6.2" fill="#ffffff"/>
+          <rect x="38.5" y="11.8" width="23" height="13.7" rx="3.8" fill="#ffffff"/>
+          <circle cx="50" cy="17.8" r="3.2" fill="#4338ca"/>
+          <path d="M35.5 48.5 45.5 59.5 65.5 37.5" fill="none" stroke="#4338ca" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="35.5" y="66.5" width="29" height="4" rx="1.2" fill="#0ea5e9"/>
+          <rect x="35.5" y="74.5" width="19" height="4" rx="1.2" fill="#0ea5e9"/>
+        </svg>
       </div>
       <div>
         <h1>Monitor Order PR &amp; PO</h1>
@@ -423,7 +436,7 @@ var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
 var SYNC_ERROR = null;
-var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[] };
+var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false };
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
   if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
@@ -693,6 +706,8 @@ function callScript(action, rowId, values){
 
 /* ============ DERIVED ============ */
 function agingClass(r){
+  /* barang sudah datang → bukan aging/warning lagi */
+  if(r.statusKey==='sudah') return 'arrived';
   if(r.age == null) return 'na';
   if(r.age >= state.critTh) return 'crit';
   if(r.age >= state.warnTh) return 'warn';
@@ -700,6 +715,7 @@ function agingClass(r){
 }
 function agingBadge(r){
   var cls = agingClass(r);
+  if(cls==='arrived') return '<span class="badge ok"><span class="dot"></span>'+(r.age!=null? r.age+' hr · ' : '')+'selesai</span>';
   if(cls==='crit') return '<span class="badge crit"><span class="dot"></span>'+r.age+' hr · kritis</span>';
   if(cls==='warn') return '<span class="badge warn"><span class="dot"></span>'+r.age+' hr · warning</span>';
   if(cls==='na')  return '<span class="badge na">—</span>';
@@ -1053,10 +1069,15 @@ function renderStatus(){
 }
 
 function renderAging(){
-  var sorted = ROWS.slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
-  var crit = ROWS.filter(function(r){ return agingClass(r)==='crit'; }).length;
-  var warn = ROWS.filter(function(r){ return agingClass(r)==='warn'; }).length;
-  var ok = ROWS.filter(function(r){ return agingClass(r)==='ok'; }).length;
+  /* Order dengan Status Kedatangan "Sudah" tidak masuk perhitungan aging/warning (barang telah tiba) */
+  var pool = state.showArrivedAging
+    ? ROWS
+    : ROWS.filter(function(r){ return r.statusKey!=='sudah'; });
+  var excluded = ROWS.length - pool.length;
+  var sorted = pool.slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
+  var crit = pool.filter(function(r){ return agingClass(r)==='crit'; }).length;
+  var warn = pool.filter(function(r){ return agingClass(r)==='warn'; }).length;
+  var ok = pool.filter(function(r){ return agingClass(r)==='ok'; }).length;
 
   var rows = sorted.map(function(r){
     var ac = agingClass(r);
@@ -1084,14 +1105,16 @@ function renderAging(){
   return '<section class="tab-page">'
     + '<div class="toolbar">'
     + '<div class="range-wrap"><label>Ambang warning:</label><input type="range" id="warnRange" min="1" max="30" value="'+state.warnTh+'"><span class="mini" id="warnRangeLbl">≥ '+state.warnTh+' hari</span><label>Ambang kritis:</label><input type="range" id="critRange" min="1" max="60" value="'+state.critTh+'"><span class="mini" id="critRangeLbl">≥ '+state.critTh+' hari</span></div>'
+    + '<label class="sync-pill wrap-on" style="cursor:pointer" title="Order yang barangnya sudah datang disembunyikan dari daftar aging"><input type="checkbox" id="showArrivedChk"'+(state.showArrivedAging?' checked':'')+' style="accent-color:#10b981"> Tampilkan yang sudah datang ('+nf(excluded)+')</label>'
     + '</div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
     + kpi(IC.alert, nf(crit), 'Kritis', 'umur ≥ '+state.critTh+' hari — segera follow-up', '#ef4444')
     + kpi(IC.clock, nf(warn), 'Warning', 'umur ≥ '+state.warnTh+' hari', '#f59e0b')
     + kpi(IC.check, nf(ok), 'Aman', 'umur < '+state.warnTh+' hari', '#10b981')
+    + kpi(IC.box, nf(excluded), 'Sudah Datang', 'tidak dihitung aging — barang telah tiba', '#0ea5e9')
     + '</div>'
     + '<div class="card"><h3>Daftar Order Berdasarkan Umur (terlama dulu)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Umur</th><th>Blocker</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-    + '<p class="hint">Baris diurutkan dari umur terlama. Order lama ditandai kuning (warning) / merah (kritis); kolom "Blocker" menunjukkan alasan belum selesai (tanpa PO / approval belum).</p></div>'
+    + '<p class="hint">Baris diurutkan dari umur terlama. Order dengan Status Kedatangan <b>Sudah</b> tidak dihitung sebagai warning/kritis karena barangnya telah tiba ('+nf(excluded)+' order dikecualikan) — centang "Tampilkan yang sudah datang" untuk melihatnya. Order lama ditandai kuning (warning) / merah (kritis); kolom "Blocker" menunjukkan alasan belum selesai (tanpa PO / approval belum).</p></div>'
     + '</section>';
 }
 
@@ -1265,6 +1288,13 @@ function bindSection(){
       if(state.critTh < state.warnTh){ state.warnTh = state.critTh; w.value = state.warnTh; }
       document.getElementById('warnRangeLbl').textContent = '≥ '+state.warnTh+' hari';
       document.getElementById('critRangeLbl').textContent = '≥ '+state.critTh+' hari';
+      render();
+    });
+  }
+  var sa = document.getElementById('showArrivedChk');
+  if(sa){
+    sa.addEventListener('change', function(){
+      state.showArrivedAging = sa.checked;
       render();
     });
   }
@@ -1544,6 +1574,23 @@ if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '
 setRows(loadFromSnapshot(), false, null);
 /* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
 if(document.getElementById('autoSync').checked){
+  AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
+}
+refresh(); /* lalu coba live segera */
+
+/* update service worker jika versi baru tersedia */
+if('serviceWorker' in navigator && navigator.serviceWorker.controller){
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    /* versi baru aktif -> reload agar frame html terbaru */
+    if(!location.hash) location.reload();
+  });
+}
+
+})();
+</script>
+</body>
+</html>
+entById('autoSync').checked){
   AUTO_TIMER = setInterval(function(){ refresh(); }, 5*60*1000);
 }
 refresh(); /* lalu coba live segera */

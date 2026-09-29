@@ -128,6 +128,7 @@ select.select{
 /* ---------- Cards & grid ---------- */
 .grid{display:grid;gap:16px}
 .cols-5{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.cols-6{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 .cols-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .cols-3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
@@ -920,7 +921,8 @@ function statusGroups(){
 function renderOverview(){
   var total = ROWS.length;
   var withPO = ROWS.filter(function(r){ return r.hasPO; }).length;
-  var waitAppr = ROWS.filter(function(r){ return r.flowKey==='wait' || r.flowKey==='nopo'; }).length;
+  var noPO = ROWS.filter(function(r){ return !r.hasPO; }).length;
+  var apprPending = ROWS.filter(function(r){ return !r.appr1 || !r.appr2; }).length;
   var done = ROWS.filter(function(r){ return r.flowKey==='done'; }).length;
   var arrived = ROWS.filter(function(r){ return r.statusKey==='sudah'; }).length;
   var pendingArr = ROWS.filter(function(r){ return r.statusKey!=='sudah'; }).length;
@@ -968,10 +970,11 @@ function renderOverview(){
 
   return '<section class="tab-page">'
     + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh 5 menit · klik kartu kategori / legenda / bar untuk detail order</span></div>'
-    + '<div class="grid cols-5">'
+    + '<div class="grid cols-6">'
     + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5', 'ov-all')
     + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9', 'ov-po')
-    + kpi(IC.clock, nf(waitAppr), 'Approval Belum Lengkap', 'PO belum ada / approval belum lengkap', '#f59e0b', 'ov-waitappr')
+    + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'nomor PO belum dibuat', '#ef4444', 'ov-nopo')
+    + kpi(IC.clock, nf(apprPending), 'Approval Belum Lengkap', 'approval 1 / 2 belum lengkap', '#f59e0b', 'ov-waitappr')
     + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'ov-arrived')
     + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444', 'ov-warn')
     + '</div>'
@@ -1113,7 +1116,7 @@ function renderStatus(){
       + '<td>'+statusBadge(r)+'</td>'
       + '<td>'+agingBadge(r)+'</td>'
       + '</tr>';
-  }).join('') : '<tr><td colspan="9"><div class="empty">Semua order sudah lengkap approval ✓</div></td></tr>';
+  }).join('') : '<tr><td colspan="9"><div class="empty">Semua order sudah memiliki PO & approval lengkap ✓</div></td></tr>';
 
   var steps = [
     {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5', drill:'ov-all'},
@@ -1128,7 +1131,7 @@ function renderStatus(){
   }).join('');
 
   return '<section class="tab-page">'
-    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu perhatian approval</span><span class="spacer"></span><span class="mini">Status Kedatangan: '+nf(arrived)+' sudah · '+nf(notArrived)+' belum</span></div>'
+    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order · '+nf(pending.length)+' perlu tindak lanjut (tanpa PO / approval belum)</span><span class="spacer"></span><span class="mini">Status Kedatangan: '+nf(arrived)+' sudah · '+nf(notArrived)+' belum</span></div>'
     + '<div class="card" style="margin-bottom:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses (Pipeline)</h3><div class="stepper">'+stepper+'</div></div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
     + kpi(IC.check, nf(done), 'Approval Lengkap', 'Approval 1 & 2 lengkap', '#10b981', 'st-done')
@@ -1139,7 +1142,7 @@ function renderStatus(){
     + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'st-arr')
     + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b', 'st-notarr')
     + '</div>'
-    + '<div class="card"><h3>⚠ Order yang Belum Lengkap Approval</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
+    + '<div class="card"><h3>⚠ Order Perlu Tindak Lanjut (Tanpa PO / Approval Belum Lengkap)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
     + '</section>';
 }
 
@@ -1314,7 +1317,8 @@ function drillSpec(key){
   var k = String(key || '');
   if(k==='ov-all')      return {t:'Semua Order (PR)',            c:'#4f46e5', rows:byAge(function(r){ return true; })};
   if(k==='ov-po')       return {t:'PO Dibuat',                   c:'#0ea5e9', rows:byAge(function(r){ return r.hasPO; })};
-  if(k==='ov-waitappr') return {t:'Approval Belum Lengkap',      c:'#f59e0b', rows:byAge(function(r){ return r.flowKey==='wait' || r.flowKey==='nopo'; })};
+  if(k==='ov-nopo')     return {t:'Belum Ada PO',     s:'nomor PO belum dibuat',            c:'#ef4444', rows:byAge(function(r){ return !r.hasPO; })};
+  if(k==='ov-waitappr') return {t:'Approval Belum Lengkap', s:'approval 1 / 2 belum lengkap', c:'#f59e0b', rows:byAge(function(r){ return !r.appr1 || !r.appr2; })};
   if(k==='ov-arrived')  return {t:'Sudah Datang',                c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
   if(k==='ov-warn')     return {t:'Warning Aging',               c:'#ef4444', rows:byAge(function(r){ var c2=agingClass(r); return c2==='warn' || c2==='crit'; })};
   if(k==='ag-crit')     return {t:'Aging Kritis',  s:'umur ≥ '+state.critTh+' hari · belum datang', c:'#ef4444', rows:byAge(function(r){ return agingClass(r)==='crit'; })};

@@ -361,43 +361,55 @@ tr.row-crit:hover{background:#ffeded!important}
       </div>
       <div class="modal-body" id="modalBody">
         <div class="f-note" id="modalNote" style="display:none"></div>
+        <!-- Urutan, tipe, opsi & field wajib sama dengan Google Form "Update PR & PO FS" -->
         <div class="f-row">
-          <div><label class="f-label">Divisi</label><input class="f-input" id="fDivisi" placeholder="cth: OP2"></div>
-          <div><label class="f-label">Tanggal (dd/mm/yyyy)</label><input class="f-input" id="fTgl" placeholder="23/09/2026"></div>
+          <div><label class="f-label">Tanggal Input Reservasi (dd/mm/yyyy) *</label><input class="f-input" id="fTgl" placeholder="23/09/2026"></div>
+          <div><label class="f-label">Divisi *</label>
+            <select class="f-input" id="fDivisi">
+              <option value="">— Pilih Divisi —</option>
+              <option value="PG2">PG2</option>
+              <option value="FM4">FM4</option>
+              <option value="OP2">OP2</option>
+            </select>
+          </div>
         </div>
+        <div><label class="f-label">Keperluan Order *</label>
+          <select class="f-input" id="fKeperluan">
+            <option value="">— Pilih Keperluan —</option>
+            <option value="Kantor">Kantor</option>
+            <option value="Spareparts Engine">Spareparts Engine</option>
+            <option value="Spareparts Irrigator">Spareparts Irrigator</option>
+            <option value="Spareparts Sumur Bor">Spareparts Sumur Bor</option>
+            <option value="Unit inventaris">Unit inventaris</option>
+            <option value="Lain - lain">Lain - lain</option>
+          </select>
+        </div>
+        <div><label class="f-label">Jenis Order (barang) — satu baris per item *</label><textarea class="f-textarea" id="fJenis" placeholder="- Ember plastik besar 15 pcs&#10;- Golok tebang biasa 15 pcs"></textarea></div>
         <div class="f-row">
           <div><label class="f-label">Nomor PR</label><input class="f-input" id="fPr" placeholder="cth: 11290820"></div>
           <div><label class="f-label">Nomor PO</label><input class="f-input" id="fPo" placeholder="opsional"></div>
         </div>
-        <div><label class="f-label">Jenis Order (barang) — satu baris per item</label><textarea class="f-textarea" id="fJenis" placeholder="- Ember plastik besar 15 pcs&#10;- Golok tebang biasa 15 pcs"></textarea></div>
         <div class="f-row">
           <div><label class="f-label">Approval 1</label>
             <select class="f-input" id="fA1">
-              <option value="OK">OK</option>
               <option value="Sudah">Sudah</option>
               <option value="Belum">Belum</option>
             </select>
           </div>
           <div><label class="f-label">Approval 2</label>
             <select class="f-input" id="fA2">
-              <option value="OK">OK</option>
               <option value="Sudah">Sudah</option>
               <option value="Belum">Belum</option>
             </select>
           </div>
         </div>
-        <div class="f-row">
-          <div><label class="f-label">Keperluan Order</label><input class="f-input" id="fKeperluan" placeholder="cth: Kantor"></div>
-          <div><label class="f-label">Status Kedatangan</label>
-            <select class="f-input" id="fArrival">
-              <option value="Belum">Belum</option>
-              <option value="Proses">Proses</option>
-              <option value="Sudah">Sudah</option>
-              <option value="Dibatalkan">Dibatalkan</option>
-            </select>
-          </div>
+        <div><label class="f-label">Status Kedatangan *</label>
+          <select class="f-input" id="fArrival">
+            <option value="Sudah">Sudah</option>
+            <option value="Belum">Belum</option>
+          </select>
         </div>
-        <div><label class="f-label">Keterangan</label><input class="f-input" id="fKet" placeholder="opsional"></div>
+        <div><label class="f-label">Keterangan</label><textarea class="f-textarea" id="fKet" style="min-height:64px" placeholder="opsional"></textarea></div>
       </div>
       <div class="modal-foot">
         <button class="btn-sm gh" id="modalCancel" type="button">Batal</button>
@@ -1570,7 +1582,7 @@ function openEditModal(k){
   saveBtn.className = 'btn-sm prim';
   document.getElementById('modalBody').classList.remove('hide-fields');
   document.getElementById('modalTitle').textContent = 'Edit Order';
-  document.getElementById('fDivisi').value = r.divisi === 'Tanpa Divisi' ? '' : r.divisi;
+  setSelect('fDivisi', r.divisi === 'Tanpa Divisi' ? '' : r.divisi);
   document.getElementById('fTgl').value = r.tgl || '';
   document.getElementById('fPr').value = r.pr || '';
   document.getElementById('fPo').value = r.po || '';
@@ -1578,7 +1590,7 @@ function openEditModal(k){
   setSelect('fA1', r.a1);
   setSelect('fA2', r.a2);
   setSelect('fArrival', r.arrivalRaw || r.status);
-  document.getElementById('fKeperluan').value = r.keperluan === '—' ? '' : r.keperluan;
+  setSelect('fKeperluan', r.keperluan === '—' ? '' : r.keperluan);
   document.getElementById('fKet').value = r.ket || '';
   toggleModal(true, { note: 'Perubahan ditulis <b>langsung ke spreadsheet</b>. Baris: PR ' + (r.pr||'-') + ' / PO ' + (r.po||'-') + '.' });
 }
@@ -1663,6 +1675,28 @@ async function ensureFreshForWrite(){
   }
 }
 
+/* validasi field wajib — sama seperti Google Form asli */
+function validateForm(){
+  var miss = [];
+  var tgl = document.getElementById('fTgl').value.trim();
+  if(!tgl || !parseDMY(tgl)) miss.push(['fTgl','Tanggal Input Reservasi (dd/mm/yyyy)']);
+  if(!document.getElementById('fDivisi').value.trim()) miss.push(['fDivisi','Divisi']);
+  if(!document.getElementById('fKeperluan').value.trim()) miss.push(['fKeperluan','Keperluan Order']);
+  if(!document.getElementById('fJenis').value.trim()) miss.push(['fJenis','Jenis Order (barang)']);
+  if(!document.getElementById('fArrival').value.trim()) miss.push(['fArrival','Status Kedatangan']);
+  if(miss.length){
+    toast('Wajib diisi: ' + miss[0][1] + (miss.length>1 ? ' (+'+(miss.length-1)+' field lagi)' : ''));
+    var el = document.getElementById(miss[0][0]);
+    if(el){
+      try{ el.focus(); }catch(e){}
+      el.style.borderColor = '#ef4444';
+      setTimeout(function(){ el.style.borderColor = ''; }, 1800);
+    }
+    return false;
+  }
+  return true;
+}
+
 async function handleSave(){
   var saveBtn = document.getElementById('modalSave');
   saveBtn.dataset.mode = saveBtn.dataset.mode || 'save';
@@ -1690,6 +1724,8 @@ async function handleSave(){
 
   var vals = buildVals();
   var isEdit = !!MODAL_ROWKEY;
+
+  if(!validateForm()) return; /* field wajib belum lengkap — jangan kirim */
 
   saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan…';
   try{

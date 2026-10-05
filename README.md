@@ -49,6 +49,16 @@ Dashboard bisa menulis balik ke spreadsheet:
 
 - Tombol **"Tambah"** (header) → form tambah order, ditulis langsung ke baris baru sheet.
 - Tombol **✏️ / 🗑️** (kolom Aksi di Tabel Detail & Aging) → edit / hapus baris.
+- **Form web mengikuti Google Form asli "Update PR & PO FS"** (urutan, tipe, opsi & field wajib):
+  - Tanggal Input Reservasi (tanggal, wajib)
+  - Divisi — dropdown: PG2, FM4, OP2 (wajib)
+  - Keperluan Order — dropdown: Kantor, Spareparts Engine, Spareparts Irrigator, Spareparts Sumur Bor, Unit inventaris, Lain - lain (wajib)
+  - Jenis Order (paragraf, wajib)
+  - Nomor PR / Nomor PO (teks, opsional)
+  - Approval 1 / Approval 2 — dropdown: Sudah, Belum
+  - Status Kedatangan — dropdown: Sudah, Belum (wajib)
+  - Keterangan (paragraf, opsional)
+  - Saat **mengedit** baris lama yang nilainya di luar daftar (mis. "Proses", "Sparepart irigator"), opsi tersebut ditambahkan otomatis agar data lama tidak hilang.
 
 **Cara kerja sinkronisasi tulis (tanpa OAuth):**
 

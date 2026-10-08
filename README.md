@@ -11,6 +11,7 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
   - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
   - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh.
   - **Tabel Detail** — filter (divisi, status), pencarian, sort kolom, dan export CSV.
+  - **Kualitas Data** — deteksi otomatis kesalahan input di semua kolom (field wajib kosong, format tanggal salah, tahun mencurigakan, nilai di luar opsi form, typo keperluan/divisi dengan saran perbaikan, PR duplikat, item tanpa nama, umur ekstrem). Notifikasi pill di header + toast saat sync, detail lokasi (baris sheet, kolom, nilai) + tombol edit langsung.
 
 ## Sumber data
 

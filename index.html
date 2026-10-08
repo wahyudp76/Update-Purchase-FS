@@ -131,6 +131,7 @@ select.select{
 .cols-6{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 .cols-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .cols-3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.cols-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
 .card h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .card h3 svg{width:15px;height:15px}
@@ -322,6 +323,7 @@ tr.row-crit:hover{background:#ffeded!important}
     </div>
     <div class="header-actions">
       <span class="sync-pill" id="syncPill"><span class="dot load" id="syncDot"></span><span id="syncText">Memuat…</span></span>
+      <button class="sync-pill" id="qaPill" style="display:none;cursor:pointer;font-weight:700">⚠ <span id="qaCount">0</span> masalah data</button>
       <label class="sync-pill wrap-on" style="cursor:pointer" title="Auto sync tiap 5 menit">
         <input type="checkbox" id="autoSync" checked style="accent-color:var(--accent)"> Auto-sync 5 menit
       </label>
@@ -477,7 +479,7 @@ var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
 var SYNC_ERROR = null;
-var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false };
+var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all' };
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
   if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
@@ -503,6 +505,7 @@ var TABS = [
   {id:'divisi',  label:'Per Divisi', icon:'<circle cx="9" cy="8" r="3"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 4a3 3 0 0 1 0 6"/><path d="M22 21v-1a6 6 0 0 0-4-5.6"/>'},
   {id:'status',  label:'Status & Approval', icon:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5.5"/>'},
   {id:'aging',   label:'Aging Order', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'},
+  {id:'kualitas', label:'Kualitas Data', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>'},
   {id:'tabel',   label:'Tabel Detail', icon:'<path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M4 14h16"/><path d="M9 9v11"/>'}
 ];
 
@@ -528,7 +531,10 @@ function parseDMY(s){
   if(!s) return null;
   var m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if(!m) return null;
-  return new Date(+m[3], +m[2]-1, +m[1]);
+  var d = new Date(+m[3], +m[2]-1, +m[1]);
+  /* round-trip: tolak tanggal mustahil (32/13, 31/2, 29/2 non-kabisat, dll.) */
+  if(d.getDate() !== +m[1] || d.getMonth() !== (+m[2]-1) || d.getFullYear() !== +m[3]) return null;
+  return d;
 }
 function daysAgo(d){
   if(!d) return null;
@@ -664,6 +670,9 @@ function setRows(rows, live, err){
   ROWS = clean;
   LIVE = !!(live && !err);
   LAST_SYNC = new Date();
+  /* validasi kualitas data setiap kali data masuk */
+  DATA_ISSUES = validateData();
+  updateQaPill();
   updateSyncPill(err);
   if(!err && live && typeof hideSyncBanner === 'function') hideSyncBanner();
   render();
@@ -719,7 +728,8 @@ async function refresh(){
     var rows = await loadLive(url);
     SYNC_ERROR = null;
     setRows(rows, true, null);
-    toast('Sinkron sukses · '+ROWS.length+' baris'+ (DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'') +' · '+timeStr(LAST_SYNC));
+    toast('Sinkron sukses · '+ROWS.length+' baris'+ (DUPDROP>0?', '+DUPDROP+' duplikat diabaikan':'') +' · '+timeStr(LAST_SYNC)
+      + (DATA_ISSUES.length ? ' · ⚠ '+DATA_ISSUES.length+' masalah data — cek "Kualitas Data"' : ''));
   }catch(e){
     SYNC_ERROR = String(e && e.message || e);
     if(ROWS.length){
@@ -930,6 +940,134 @@ function statusGroups(){
   return order.map(function(o){ return { key:o.key, label:o.label, value:counts[o.key]||0, color:o.color }; });
 }
 
+/* ============ KUALITAS DATA: deteksi kesalahan input per kolom ============ */
+/* Daftar nilai sah — sesuai Google Form asli "Update PR & PO FS" */
+var DIVISI_FORM = ['PG2','FM4','OP2'];
+var KEPERLUAN_FORM = ['Kantor','Spareparts Engine','Spareparts Irrigator','Spareparts Sumur Bor','Unit inventaris','Lain - lain'];
+var APPROVAL_FORM = ['Sudah','Belum'];
+var ARRIVAL_FORM = ['Sudah','Belum'];
+
+var DATA_ISSUES = [];
+
+function levDist(a, b){
+  /* Levenshtein pendek untuk saran perbaikan typo */
+  a = String(a).toLowerCase(); b = String(b).toLowerCase();
+  if(a === b) return 0;
+  if(Math.abs(a.length - b.length) > 3) return 9;
+  var prev = [], cur = [];
+  for(var j = 0; j <= b.length; j++) prev[j] = j;
+  for(var i = 1; i <= a.length; i++){
+    cur[0] = i;
+    for(j = 1; j <= b.length; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    }
+    var t = prev; prev = cur; cur = t;
+  }
+  return prev[b.length];
+}
+function suggestOption(val, list){
+  var best = null, bd = 3;
+  list.forEach(function(o){
+    var d = levDist(val, o);
+    if(d < bd){ bd = d; best = o; }
+  });
+  return bd <= 2 ? best : null;
+}
+
+function validateData(){
+  var issues = [];
+  var byPr = {};
+  ROWS.forEach(function(r){ if(r.pr) byPr[r.pr] = (byPr[r.pr]||0)+1; });
+  var nowYr = new Date().getFullYear();
+  ROWS.forEach(function(r, idx){
+    var sheetRow = (r.raw && r.raw['No Row ID']) ? String(r.raw['No Row ID']) : String(idx + 2);
+    function add(kolom, level, pesan, saran, nilai){
+      issues.push({ key: rowKey(r), sheetRow: sheetRow, tgl: r.tgl, divisi: r.divisi, pr: r.pr, po: r.po,
+        kolom: kolom, level: level, pesan: pesan, saran: saran || '', nilai: nilai == null ? '' : String(nilai) });
+    }
+    /* Tanggal Input Reservasi (wajib) */
+    if(!r.tgl){ add('Tanggal Input Reservasi','error','Tanggal kosong (wajib diisi)','Isi dengan format dd/mm/yyyy, mis. 05/10/2026',''); }
+    else if(!parseDMY(r.tgl)){ add('Tanggal Input Reservasi','error','Format tanggal tidak dikenali: "'+r.tgl+'"','Gunakan dd/mm/yyyy', r.tgl); }
+    else if(r.date){
+      if(r.date.getFullYear() < nowYr) add('Tanggal Input Reservasi','warn','Tahun '+r.date.getFullYear()+' — tahun lalu / kemungkinan typo (umur order '+(r.age!=null?r.age:'?')+' hari)','Periksa apakah maksudnya tahun '+nowYr+' — edit tanggalnya', r.tgl);
+      if(r.date.getTime() - Date.now() > 30*86400000) add('Tanggal Input Reservasi','warn','Tanggal di masa depan ('+r.tgl+')','Periksa kembali tanggal input', r.tgl);
+    }
+    /* Divisi (wajib, dropdown) */
+    if(!r.divisi || r.divisi === 'Tanpa Divisi'){ add('Divisi','error','Divisi kosong (wajib)','Pilih: PG2 / FM4 / OP2',''); }
+    else if(DIVISI_FORM.indexOf(r.divisi) < 0){
+      var sv = suggestOption(r.divisi, DIVISI_FORM);
+      add('Divisi','warn','Divisi "'+r.divisi+'" tidak ada di daftar form'+(sv?' — maksudnya "'+sv+'"?':''),'Gunakan PG2 / FM4 / OP2', r.divisi);
+    }
+    /* Keperluan Order (wajib, dropdown) */
+    var kep = (r.keperluan === '—') ? '' : r.keperluan;
+    if(!kep){ add('Keperluan Order','error','Keperluan kosong (wajib)','Pilih salah satu opsi form',''); }
+    else if(KEPERLUAN_FORM.indexOf(kep) < 0){
+      var sk = suggestOption(kep, KEPERLUAN_FORM);
+      add('Keperluan Order','warn','"'+kep+'" tidak ada di daftar opsi form'+(sk?' — maksudnya "'+sk+'"?':''), sk ? 'Ganti menjadi "'+sk+'"' : 'Pilih dari opsi form', kep);
+    }
+    /* Jenis Order (wajib) */
+    if(!r.jenis || !r.items.length){
+      add('Jenis Order','error','Jenis Order kosong (wajib)','Isi daftar barang — satu baris per item','');
+    } else {
+      r.items.forEach(function(it, ii){
+        var q = splitQty(it);
+        if(q.name.length < 2 || /^\d+([.,]\d+)?\s*[a-z]{0,4}$/i.test(q.name)){
+          add('Jenis Order','warn','Baris item '+(ii+1)+' tanpa nama barang jelas: "'+String(q.name || it).slice(0,40)+'"','Tulis nama barang sebelum jumlah, mis. "BEARING 6204 2 pcs"', it);
+        }
+      });
+    }
+    /* Nomor PR */
+    if(!r.pr){ add('Nomor PR','warn','Nomor PR kosong','Isi nomor PR agar order mudah dilacak',''); }
+    else {
+      if(byPr[r.pr] > 1) add('Nomor PR','warn','PR "'+r.pr+'" dipakai di '+byPr[r.pr]+' baris (duplikat?)','Pastikan bukan input ganda; bedakan nomor PR bila memang order berbeda', r.pr);
+      if(!/^\d+$/.test(r.pr)) add('Nomor PR','info','Nomor PR mengandung non-angka: "'+r.pr+'"','Nomor PR biasanya berupa angka', r.pr);
+    }
+    /* Nomor PO (opsional) */
+    if(r.po && !/^\d+$/.test(r.po)) add('Nomor PO','info','Nomor PO mengandung non-angka: "'+r.po+'"','Nomor PO biasanya berupa angka', r.po);
+    /* Approval 1 / 2 */
+    [['Approval 1', r.a1], ['Approval 2', r.a2]].forEach(function(p){
+      var v = String(p[1] || '').trim();
+      if(v && APPROVAL_FORM.indexOf(v) < 0) add(p[0],'warn','Nilai "'+v+'" di luar opsi form (Sudah/Belum)','Gunakan Sudah atau Belum', v);
+    });
+    /* Status Kedatangan (wajib, dropdown) */
+    if(!r.arrivalRaw){ add('Status Kedatangan','error','Status Kedatangan kosong (wajib)','Pilih Sudah atau Belum',''); }
+    else if(ARRIVAL_FORM.indexOf(r.arrivalRaw) < 0){
+      add('Status Kedatangan', r.arrivalRaw === 'Proses' ? 'info' : 'warn',
+        'Nilai "'+r.arrivalRaw+'" di luar opsi form (Sudah/Belum)'+(r.arrivalRaw === 'Proses' ? ' — nilai lama' : ''),
+        'Gunakan Sudah atau Belum', r.arrivalRaw);
+    }
+    /* Umur ekstrem */
+    if(r.age != null && r.age > 90 && r.statusKey !== 'sudah'){
+      add('Umur Order','warn','Umur order '+r.age+' hari & belum datang','Periksa tanggal order atau perbarui status kedatangannya', r.age + ' hari');
+    }
+    /* Timestamp */
+    if(!r.ts) add('Timestamp','info','Timestamp kosong','Biasanya terisi otomatis oleh form','');
+  });
+  var ord = { error:0, warn:1, info:2 };
+  issues.sort(function(a, b){
+    if(ord[a.level] !== ord[b.level]) return ord[a.level] - ord[b.level];
+    return (parseInt(a.sheetRow,10) || 0) - (parseInt(b.sheetRow,10) || 0);
+  });
+  return issues;
+}
+
+function updateQaPill(){
+  var p = document.getElementById('qaPill');
+  if(!p) return;
+  var n = DATA_ISSUES.length;
+  if(n > 0){
+    var hasErr = DATA_ISSUES.some(function(i){ return i.level === 'error'; });
+    p.style.display = 'inline-flex';
+    document.getElementById('qaCount').textContent = nf(n);
+    p.title = n + ' masalah data terdeteksi (' + (hasErr ? 'ada kolom wajib yang rusak' : 'peringatan ringan') + ') — klik untuk melihat detail & lokasi kesalahan';
+    p.style.borderColor = hasErr ? '#ef4444' : '#f59e0b';
+    p.style.color = hasErr ? '#b91c1c' : '#92400e';
+    p.style.background = hasErr ? '#fef2f2' : '#fffbeb';
+  } else {
+    p.style.display = 'none';
+  }
+}
+
 function renderOverview(){
   var total = ROWS.length;
   var withPO = ROWS.filter(function(r){ return r.hasPO; }).length;
@@ -1035,7 +1173,7 @@ function renderJenis(){
     + kpi(IC.docs, nf(names ? Object.keys(names).length : 0), 'Jenis Barang Unik', 'nama barang berbeda', '#0ea5e9')
     + kpi(IC.check, nf(Math.round(qtySum)), 'Total Kuantitas', 'jumlah unit dipesan', '#10b981')
     + kpi(IC.clock, nf(Object.keys(byKep).length), 'Kategori Keperluan', 'berdasarkan kolom Keperluan Order', '#8b5cf6')
-    + kpi(IC.alert, nf(top.length), 'Item Terpopuler', 'item paling sering muncul', '#f59e0b')
+    + kpi(IC.alert, nf(top.length ? top[0].value : 0), 'Item Terpopuler', top.length ? esc(top[0].label.length > 42 ? top[0].label.slice(0,42)+'…' : top[0].label) : 'belum ada item', '#f59e0b')
     + '</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3>Item Paling Sering Dipesan</h3>'+hbar(top)+'</div>'
@@ -1208,6 +1346,68 @@ function renderAging(){
     + '</section>';
 }
 
+function renderKualitas(){
+  var iss = DATA_ISSUES || [];
+  var errs = iss.filter(function(i){ return i.level==='error'; }).length;
+  var warns = iss.filter(function(i){ return i.level==='warn'; }).length;
+  var infos = iss.filter(function(i){ return i.level==='info'; }).length;
+  var affectedKeys = {};
+  iss.forEach(function(i){ affectedKeys[i.key] = 1; });
+  var nAff = Object.keys(affectedKeys).length;
+  var cleanRows = Math.max(0, ROWS.length - nAff);
+
+  var lvlBadge = function(l){
+    if(l === 'error') return '<span class="badge crit"><span class="dot"></span>Error</span>';
+    if(l === 'warn')  return '<span class="badge warn"><span class="dot"></span>Warning</span>';
+    return '<span class="badge" style="background:#e0f2fe;color:#0369a1"><span class="dot" style="background:#0284c7"></span>Info</span>';
+  };
+  var chips = [
+    ['all','Semua', iss.length], ['error','Error', errs], ['warn','Warning', warns], ['info','Info', infos]
+  ].map(function(c){
+    return '<button class="btn" data-qaf="'+c[0]+'" style="'+(state.qaFilter===c[0]?'background:#4f46e5;border-color:#4f46e5;color:#fff':'')+'">'+c[1]+' ('+nf(c[2])+')</button>';
+  }).join(' ');
+
+  var list = state.qaFilter === 'all' ? iss : iss.filter(function(i){ return i.level === state.qaFilter; });
+  var rowsHtml;
+  if(!ROWS.length){
+    rowsHtml = '<tr><td colspan="10"><div class="empty">Belum ada data</div></td></tr>';
+  } else if(!iss.length){
+    rowsHtml = '<tr><td colspan="10"><div class="empty">✓ Semua data bersih — tidak ada kesalahan terdeteksi pada '+nf(ROWS.length)+' baris</div></td></tr>';
+  } else if(!list.length){
+    rowsHtml = '<tr><td colspan="10"><div class="empty">Tidak ada masalah pada level ini</div></td></tr>';
+  } else {
+    rowsHtml = list.map(function(i){
+      return '<tr>'
+        + '<td class="mono">baris '+esc(i.sheetRow)+'</td>'
+        + '<td class="mono">'+(i.tgl?esc(i.tgl):'—')+'</td>'
+        + '<td><span class="badge divi">'+esc(i.divisi)+'</span></td>'
+        + '<td class="mono">'+(i.pr?esc(i.pr):'—')+'</td>'
+        + '<td class="mono">'+(i.po?esc(i.po):'—')+'</td>'
+        + '<td><b>'+esc(i.kolom)+'</b></td>'
+        + '<td class="mono" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(i.nilai)+'">'+(i.nilai?esc(i.nilai):'<span class="mini">(kosong)</span>')+'</td>'
+        + '<td>'+lvlBadge(i.level)+'</td>'
+        + '<td><div>'+esc(i.pesan)+'</div>'+(i.saran?'<div class="mini" style="color:#10b981">→ '+esc(i.saran)+'</div>':'')+'</td>'
+        + '<td><button class="btn-act edit" data-edit="'+esc(i.key)+'" title="Edit baris ini">'+IC.edit+'</button></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  return '<section class="tab-page">'
+    + '<div class="toolbar">'
+    + '<span class="count-pill">'+nf(iss.length)+' masalah pada '+nf(nAff)+' dari '+nf(ROWS.length)+' baris</span>'
+    + '<span class="spacer"></span>'+chips
+    + '</div>'
+    + '<div class="grid cols-4" style="margin-bottom:16px">'
+    + kpi(IC.alert, nf(errs), 'Error', 'kolom wajib kosong / rusak — segera perbaiki', '#ef4444')
+    + kpi(IC.clock, nf(warns), 'Warning', 'dicurigai salah input — perlu dicek', '#f59e0b')
+    + kpi(IC.docs, nf(infos), 'Info', 'perlu diperhatikan', '#0ea5e9')
+    + kpi(IC.check, nf(cleanRows), 'Baris Bersih', 'dari '+nf(ROWS.length)+' baris order', '#10b981')
+    + '</div>'
+    + '<div class="card"><h3>Detail Kesalahan Input per Kolom</h3><div class="tablewrap"><table><thead><tr><th>Lokasi</th><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Kolom</th><th>Nilai</th><th>Level</th><th>Masalah &amp; Saran Perbaikan</th><th>Aksi</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'
+    + '<p class="hint">Validasi mengacu pada struktur Google Form asli (field wajib &amp; daftar opsi resmi). <b>Error</b> = kolom wajib kosong/rusak · <b>Warning</b> = kemungkinan salah input (typo, duplikat, tahun salah) · <b>Info</b> = perlu diperhatikan. Klik ✏️ untuk memperbaiki langsung dari web — perubahan tersimpan ke spreadsheet.</p></div>'
+    + '</section>';
+}
+
 function renderTable(){
   var q = state.q.toLowerCase();
   var rows = ROWS.filter(function(r){
@@ -1316,6 +1516,7 @@ function render(){
     case 'divisi': html = renderDivisi(); break;
     case 'status': html = renderStatus(); break;
     case 'aging': html = renderAging(); break;
+    case 'kualitas': html = renderKualitas(); break;
     case 'tabel': html = renderTable(); break;
     default: html = renderOverview();
   }
@@ -1485,6 +1686,13 @@ function bindSection(){
       render();
     });
   }
+  /* filter level kualitas data */
+  document.querySelectorAll('[data-qaf]').forEach(function(el){
+    el.addEventListener('click', function(){
+      state.qaFilter = el.getAttribute('data-qaf');
+      render();
+    });
+  });
 
   /* aksi edit/hapus per baris */
   document.querySelectorAll('[data-edit]').forEach(function(el){
@@ -1762,6 +1970,7 @@ function updateGoogleSheet(rowId, mode, values){
 
 /* ============ INIT ============ */
 document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('qaPill').addEventListener('click', function(){ state.tab = 'kualitas'; render(); });
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
 document.getElementById('syncBannerClose').addEventListener('click', hideSyncBanner);
 document.getElementById('addBtn').addEventListener('click', openAddModal);

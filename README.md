@@ -57,7 +57,7 @@ Dashboard bisa menulis balik ke spreadsheet:
   - Jenis Order (paragraf, wajib)
   - Nomor PR / Nomor PO (teks, opsional)
   - Approval 1 / Approval 2 — dropdown: Sudah, Belum
-  - Status Kedatangan — dropdown: Sudah, Belum (wajib)
+  - Status Kedatangan — dropdown: Sudah, Proses, Belum (wajib)
   - Keterangan (paragraf, opsional)
   - Saat **mengedit** baris lama yang nilainya di luar daftar (mis. "Proses", "Sparepart irigator"), opsi tersebut ditambahkan otomatis agar data lama tidak hilang.
 

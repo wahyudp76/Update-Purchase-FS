@@ -408,6 +408,7 @@ tr.row-crit:hover{background:#ffeded!important}
         <div><label class="f-label">Status Kedatangan *</label>
           <select class="f-input" id="fArrival">
             <option value="Sudah">Sudah</option>
+            <option value="Proses">Proses</option>
             <option value="Belum">Belum</option>
           </select>
         </div>
@@ -945,7 +946,7 @@ function statusGroups(){
 var DIVISI_FORM = ['PG2','FM4','OP2'];
 var KEPERLUAN_FORM = ['Kantor','Spareparts Engine','Spareparts Irrigator','Spareparts Sumur Bor','Unit inventaris','Lain - lain'];
 var APPROVAL_FORM = ['Sudah','Belum'];
-var ARRIVAL_FORM = ['Sudah','Belum'];
+var ARRIVAL_FORM = ['Sudah','Proses','Belum'];
 
 var DATA_ISSUES = [];
 
@@ -1030,11 +1031,9 @@ function validateData(){
       if(v && APPROVAL_FORM.indexOf(v) < 0) add(p[0],'warn','Nilai "'+v+'" di luar opsi form (Sudah/Belum)','Gunakan Sudah atau Belum', v);
     });
     /* Status Kedatangan (wajib, dropdown) */
-    if(!r.arrivalRaw){ add('Status Kedatangan','error','Status Kedatangan kosong (wajib)','Pilih Sudah atau Belum',''); }
+    if(!r.arrivalRaw){ add('Status Kedatangan','error','Status Kedatangan kosong (wajib)','Pilih Sudah, Proses, atau Belum',''); }
     else if(ARRIVAL_FORM.indexOf(r.arrivalRaw) < 0){
-      add('Status Kedatangan', r.arrivalRaw === 'Proses' ? 'info' : 'warn',
-        'Nilai "'+r.arrivalRaw+'" di luar opsi form (Sudah/Belum)'+(r.arrivalRaw === 'Proses' ? ' — nilai lama' : ''),
-        'Gunakan Sudah atau Belum', r.arrivalRaw);
+      add('Status Kedatangan','warn','Nilai "'+r.arrivalRaw+'" di luar opsi form (Sudah/Proses/Belum)','Gunakan Sudah, Proses, atau Belum', r.arrivalRaw);
     }
     /* Umur ekstrem */
     if(r.age != null && r.age > 90 && r.statusKey !== 'sudah'){

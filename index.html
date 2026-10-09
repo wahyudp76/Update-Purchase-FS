@@ -1555,7 +1555,7 @@ function renderStatus(){
       + '<td>'+statusBadge(r)+'</td>'
       + '<td>'+agingBadge(r)+'</td>'
       + '</tr>';
-  }).join('') : '<tr><td colspan="9"><div class="empty">Semua order sudah memiliki PO & approval lengkap ✓</div></td></tr>';
+  }).join('') : '<tr><td colspan="10"><div class="empty">Semua order sudah memiliki PO & approval lengkap ✓</div></td></tr>';
 
   var steps = [
     {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5', drill:'ov-all'},
@@ -1581,7 +1581,7 @@ function renderStatus(){
     + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'st-arr')
     + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b', 'st-notarr')
     + '</div>'
-    + '<div class="card"><h3>⚠ Order Perlu Tindak Lanjut (Tanpa PO / Approval Belum Lengkap)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
+    + '<div class="card"><h3>⚠ Order Perlu Tindak Lanjut (Tanpa PO / Approval Belum Lengkap)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Tipe Order</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
     + '</section>';
 }
 
@@ -1752,8 +1752,12 @@ function renderTable(){
       + '<button class="btn-act edit" data-edit="'+esc(k)+'" title="Edit order">'+IC.edit+'</button>'
       + '<button class="btn-act del" data-del="'+esc(k)+'" title="Hapus order">'+IC.trash+'</button>'
       + '</div></td>';
+    var tipeBadge = r.tipe
+      ? '<span class="badge" style="background:'+hexA(TIPE_COLORS[r.tipe]||'#94a3b8',0.14)+';color:'+(TIPE_COLORS[r.tipe]||'#94a3b8')+'"><span class="dot"></span>'+esc(r.tipe)+'</span>'
+      : '<span class="mini">—</span>';
     return '<tr class="'+cls+'">'
       + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td>'+tipeBadge+'</td>'
       + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
       + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
       + '<td class="mono">'+(r.po?esc(r.po):'—')+'</td>'

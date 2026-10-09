@@ -1396,7 +1396,7 @@ function renderTipe(){
   /* daftar CAPEX + NO CAPEX */
   var capexRows = rows.filter(function(r){ return tipe(r)==='CAPEX'; });
   var capexTable = capexRows.length ? (
-    '<div class="table-wrap"><table class="tbl"><thead><tr>'
+    '<div class="tablewrap"><table><thead><tr>'
     + '<th>PR</th><th>PO</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th><th>Status</th><th>Umur</th>'
     + '</tr></thead><tbody>'
     + capexRows.map(function(r){
@@ -1449,7 +1449,7 @@ function renderTipe(){
     + '<h3 style="margin:0"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Semua Order dengan No CAPEX ('+noCapex.length+')</h3>'
     + (noCapex.length ? '<span class="mini">kolom "NO CAPEX" terisi &mdash; muncul juga di tab Kualitas Data bila tipe &ne; CAPEX</span>' : '')
     + '</div>'
-    + (noCapex.length ? ('<div class="table-wrap"><table class="tbl"><thead><tr><th>PR</th><th>Tipe</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th></tr></thead><tbody>'
+    + (noCapex.length ? ('<div class="tablewrap"><table><thead><tr><th>PR</th><th>Tipe</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th></tr></thead><tbody>'
       + noCapex.map(function(r){
           return '<tr><td class="mono">'+(r.pr?esc(r.pr):'&mdash;')+'</td>'
             + '<td>'+(r.tipe?'<span class="badge" style="background:'+hexA(TIPE_COLORS[r.tipe]||'#94a3b8',0.14)+';color:'+(TIPE_COLORS[r.tipe]||'#94a3b8')+'"><span class="dot"></span>'+esc(r.tipe)+'</span>':'<span class="mini">&mdash;</span>')+'</td>'

@@ -369,7 +369,7 @@ tr.row-crit:hover{background:#ffeded!important}
           <div><label class="f-label">Tanggal Input Reservasi (dd/mm/yyyy) *</label><input class="f-input" id="fTgl" placeholder="23/09/2026"></div>
           <div><label class="f-label">Tipe Order *</label>
             <select class="f-input" id="fTipe">
-              <option value="RESERVASI">RESERVASI</option>
+              <option value="PR MANUAL">PR MANUAL</option>
               <option value="CAPEX">CAPEX</option>
               <option value="OHC">OHC</option>
               <option value="MO">MO</option>
@@ -597,7 +597,7 @@ function normalize(raw){
   var ket = get('Keterangan');
   var keperluan = get('Keperluan Order') || '—';
   var arrivalRaw = get('Status Kedatangan');
-  var tipe = get('Tipe Order');      /* kolom baru (RESERVASI/CAPEX/OHC/MO/WBS) */
+  var tipe = get('Tipe Order');      /* kolom baru (PR MANUAL/CAPEX/OHC/MO/WBS) */
   var noCapex = get('NO CAPEX');     /* kolom baru */
 
   var items = parseItems(jenis);
@@ -967,7 +967,7 @@ var DIVISI_FORM = ['PG2','FM4','OP2'];
 var KEPERLUAN_FORM = ['Kantor','Spareparts Engine','Spareparts Irrigator','Spareparts Sumur Bor','Unit inventaris','Lain - lain'];
 var APPROVAL_FORM = ['Sudah','Belum'];
 var ARRIVAL_FORM = ['Sudah','Proses','Belum'];
-var TIPE_FORM = ['RESERVASI','CAPEX','OHC','MO','WBS'];
+var TIPE_FORM = ['PR MANUAL','CAPEX','OHC','MO','WBS'];
 
 var DATA_ISSUES = [];
 
@@ -1058,10 +1058,10 @@ function validateData(){
     }
     /* Tipe Order (wajib di form baru; baris lama belum mengisi — warning, bukan error) */
     if(!r.tipe){
-      add('Tipe Order','warn','Tipe Order kosong — kolom baru di form (RESERVASI/CAPEX/OHC/MO/WBS)','Edit baris ini dan pilih tipe order (kolom baru sejak Okt 2026)', '');
+      add('Tipe Order','warn','Tipe Order kosong — kolom baru di form (PR MANUAL/CAPEX/OHC/MO/WBS)','Edit baris ini dan pilih tipe order (kolom baru sejak Okt 2026)', '');
     } else if(TIPE_FORM.indexOf(r.tipe) < 0){
       var stp = suggestOption(r.tipe, TIPE_FORM);
-      add('Tipe Order','warn','Tipe "'+r.tipe+'" tidak ada di daftar form','Gunakan: RESERVASI / CAPEX / OHC / MO / WBS', r.tipe);
+      add('Tipe Order','warn','Tipe "'+r.tipe+'" tidak ada di daftar form',(r.tipe==='RESERVASI'?'Opsi "RESERVASI" kini bernama "PR MANUAL" — edit baris ini':'Gunakan: PR MANUAL / CAPEX / OHC / MO / WBS'), r.tipe);
     }
     /* NO CAPEX (opsional; wajib bila tipe CAPEX) */
     if(r.tipe === 'CAPEX' && !r.noCapex){
@@ -1183,7 +1183,7 @@ function renderOverview(){
   topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; t.drill = 'item:'+t.label; });
 
   /* ===== ANALISA BARU ===== */
-  var TIPE_COLORS = {'RESERVASI':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
+  var TIPE_COLORS = {'PR MANUAL':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
   var byTipe = {};
   R.forEach(function(r){ var t = r.tipe || '(belum diisi)'; byTipe[t]=(byTipe[t]||0)+1; });
   var tipeBars = Object.keys(byTipe).sort(function(a,b){return byTipe[b]-byTipe[a];}).map(function(t){
@@ -1239,7 +1239,7 @@ function renderOverview(){
   var fBar = sel('ovDiv', state.ovF.div, [['all','Semua Divisi']].concat(uniqAll(function(r){ return r.divisi; }).map(function(d){ return [d,d]; })))
     + sel('ovSt', state.ovF.st, [['all','Semua Status Kedatangan']].concat(uniqAll(function(r){ return r.statusKey; }).map(function(k){ return [k,'Status: '+k]; })))
     + sel('ovKep', state.ovF.kep, [['all','Semua Keperluan']].concat(uniqAll(function(r){ return r.keperluan==='—'?'':r.keperluan; }).map(function(k){ return [k,k]; })))
-    + sel('ovTipe', state.ovF.tipe, [['all','Semua Tipe Order']].concat(['RESERVASI','CAPEX','OHC','MO','WBS'].map(function(t){ return [t,t]; })))
+    + sel('ovTipe', state.ovF.tipe, [['all','Semua Tipe Order']].concat(TIPE_LIST.map(function(t){ return [t,t]; })))
     + sel('ovPer', state.ovF.per, [['all','Semua Periode'],['30','30 hari terakhir'],['90','90 hari terakhir'],['180','180 hari terakhir'],['ytd','Tahun ini']])
     + (activeF ? '<button class="btn" id="ovReset" title="Hapus semua filter">&#10005; Reset ('+activeF+')</button>' : '');
 
@@ -1325,8 +1325,8 @@ function renderJenis(){
 }
 
 /* ============ TAB TIPE ORDER ============ */
-var TIPE_LIST = ['RESERVASI','CAPEX','OHC','MO','WBS'];
-var TIPE_COLORS = {'RESERVASI':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
+var TIPE_LIST = ['PR MANUAL','CAPEX','OHC','MO','WBS'];
+var TIPE_COLORS = {'PR MANUAL':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
 
 function renderTipe(){
   var rows = ovRows().filter(function(r){
@@ -1414,7 +1414,7 @@ function renderTipe(){
           + '</tr>';
       }).join('')
     + '</tbody></table></div>'
-  ) : '<div class="empty">Belum ada order dengan tipe CAPEX. Pilih tipe RESERVASI/CAPEX/OHC/MO/WBS saat menambah order, atau edit baris lama.</div>';
+  ) : '<div class="empty">Belum ada order dengan tipe CAPEX. Pilih tipe PR MANUAL/CAPEX/OHC/MO/WBS saat menambah order, atau edit baris lama.</div>';
 
   var totalRows = ovRows().length;
   return '<section class="tab-page">'
@@ -2097,7 +2097,7 @@ function openAddModal(){
   var dd = String(today.getDate()).padStart(2,'0');
   var mm = String(today.getMonth()+1).padStart(2,'0');
   var yyyy = today.getFullYear();
-  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fTipe:'RESERVASI', fNoCapex:'', fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fArrival:'Belum', fKet:'' };
+  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fTipe:'PR MANUAL', fNoCapex:'', fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fArrival:'Belum', fKet:'' };
   Object.keys(vals).forEach(function(id){ document.getElementById(id).value = vals[id]; });
   toggleModal(true, { note: 'Order baru akan ditulis <b>langsung ke spreadsheet</b> (tab "' + SHEET_NAME + '") melalui Google Apps Script.' });
 }
@@ -2116,7 +2116,7 @@ function openEditModal(k){
   setSelect('fDivisi', r.divisi === 'Tanpa Divisi' ? '' : r.divisi);
   document.getElementById('fTgl').value = r.tgl || '';
   /* Tipe Order: baris lama (kolom baru belum aktif) → tampilkan opsi "(belum diisi)"
-     secara eksplisit agar tidak diam-diah terisi RESERVASI; user wajib memilih saat simpan */
+     secara eksplisit agar tidak diam-diah terisi PR MANUAL; user wajib memilih saat simpan */
   var tipeSel = document.getElementById('fTipe');
   if(tipeSel){
     var hasEmpty = false;

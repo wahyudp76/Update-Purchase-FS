@@ -8,7 +8,7 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
   - **Filter global (Overview)** — dropdown Divisi, Status Kedatangan, Keperluan, Tipe Order, dan Periode (30/90/180 hari / tahun ini) di bagian atas tab Overview; seluruh KPI, chart, tabel di **semua tab** otomatis mengikuti filter aktif. Tombol **✕ Reset** mengembalikan semua.
   - **Overview** — total order, PO dibuat, belum ada PO, approval belum lengkap, selesai, warning aging, tren bulanan, order per divisi, status, item terpopuler, **distribusi Tipe Order, rentang umur order yang belum datang, kelengkapan proses (% PO / approval / datang), dan 5 order terlama yang belum datang**.
   - **Jenis Order** — rincian per item/barang, kategori keperluan, top item & total kuantitas.
-  - **Tipe Order** — KPI per tipe (RESERVASI/CAPEX/OHC/MO/WBS) + jumlah yang belum diisi, donut komposisi, matriks **Tipe × Divisi** (klik untuk drill-down gabungan), daftar **CAPEX tanpa No CAPEX**, tabel CAPEX & No CAPEX, serta tabel semua baris yang memiliki No CAPEX.
+  - **Tipe Order** — KPI per tipe (PR MANUAL/CAPEX/OHC/MO/WBS) + jumlah yang belum diisi, donut komposisi, matriks **Tipe × Divisi** (klik untuk drill-down gabungan), daftar **CAPEX tanpa No CAPEX**, tabel CAPEX & No CAPEX, serta tabel semua baris yang memiliki No CAPEX.
   - **Per Divisi** — kartu per divisi (klik untuk filter di Tabel Detail); mengikuti filter global.
   - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
   - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh. Tersedia filter divisi lokal + mengikuti filter global.
@@ -99,7 +99,7 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
 | Keterangan | catatan |
 | Keperluan Order | kategori keperluan |
 | Status Kedatangan | status barang sudah/proses/belum datang |
-| Tipe Order | RESERVASI / CAPEX / OHC / MO / WBS (kolom baru Okt 2026 — di ujung kanan sheet) |
+| Tipe Order | PR MANUAL / CAPEX / OHC / MO / WBS (opsi "RESERVASI" diubah menjadi "PR MANUAL" di Google Form) (kolom baru Okt 2026 — di ujung kanan sheet) |
 | NO CAPEX | nomor CAPEX, wajib bila tipe = CAPEX (kolom baru Okt 2026) |
 
 ## Logika status otomatis

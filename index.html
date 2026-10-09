@@ -96,9 +96,13 @@ header.top{
 nav.tabs{
   padding:0 22px;display:flex;gap:6px;overflow-x:auto;
   border-bottom:1px solid var(--line);background:rgba(255,255,255,.7);
-  scrollbar-width:none;
+  scrollbar-width:thin; /* scrollbar tipis terlihat — header tab bisa digeser dgn mouse */
+  scrollbar-color:#c3c8d4 transparent;
 }
-nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs::-webkit-scrollbar{height:7px}
+nav.tabs::-webkit-scrollbar-track{background:transparent}
+nav.tabs::-webkit-scrollbar-thumb{background:#c3c8d4;border-radius:99px}
+nav.tabs::-webkit-scrollbar-thumb:hover{background:#a9b0c0}
 .tab{
   display:inline-flex;align-items:center;gap:8px;padding:12px 15px;
   font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;
@@ -1796,6 +1800,9 @@ function renderNav(){
   nav.innerHTML = TABS.map(function(t){
     return '<button class="tab'+(state.tab===t.id?' active':'')+'" data-tab="'+t.id+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+t.icon+'</svg>'+t.label+'</button>';
   }).join('');
+  /* tab aktif otomatis digulir agar terlihat (mis. setelah ganti tab) */
+  var act = nav.querySelector('.tab.active');
+  if(act && act.scrollIntoView){ try{ act.scrollIntoView({behavior:'smooth', inline:'nearest', block:'nearest'}); }catch(e){} }
 }
 
 function render(){
@@ -2373,6 +2380,24 @@ document.addEventListener('keydown', function(e){
   if(db) db.addEventListener('click', function(e){ if(e.target===db) closeDrill(); });
   var dc = document.getElementById('drillClose');
   if(dc) dc.addEventListener('click', closeDrill);
+})();
+
+/* scroll horizontal tab header dgn RODA MOUSE (mouse biasa tidak bisa swipe seperti trackpad) */
+(function(){
+  var nav = document.getElementById('tabsNav');
+  if(!nav) return;
+  nav.addEventListener('wheel', function(e){
+    if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; /* gestur trackpad / shift+wheel: biarkan default */
+    var max = nav.scrollWidth - nav.clientWidth;
+    if(max <= 0) return; /* semua tab sudah muat */
+    /* normalisasi: Firefox kadang mengirim "lines" (deltaMode 1), bukan piksel */
+    var dy = e.deltaY * (e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? nav.clientWidth : 1));
+    var goingRight = dy > 0;
+    var can = goingRight ? (max - nav.scrollLeft) > 0.5 : nav.scrollLeft > 0.5;
+    if(!can) return; /* sudah di ujung → jangan kunci scroll halaman */
+    e.preventDefault();
+    nav.scrollLeft = Math.max(0, Math.min(max, nav.scrollLeft + dy));
+  }, { passive:false });
 })();
 
 /* init dengan snapshot dulu agar cepat tampil */

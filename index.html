@@ -228,6 +228,7 @@ tr.row-crit:hover{background:#ffeded!important}
 
 /* ---------- Empty / misc ---------- */
 .empty{padding:34px;text-align:center;color:var(--muted);font-size:13px}
+.mini-tipe{padding:5px 10px;border-radius:99px;font-size:11px;border:1px solid transparent;line-height:1.2}
 .range-wrap{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;flex-wrap:wrap}
 .range-wrap label{font-size:12px;font-weight:700;color:var(--muted)}
 .num-in{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;color:var(--txt);background:#fff}
@@ -366,6 +367,18 @@ tr.row-crit:hover{background:#ffeded!important}
         <!-- Urutan, tipe, opsi & field wajib sama dengan Google Form "Update PR & PO FS" -->
         <div class="f-row">
           <div><label class="f-label">Tanggal Input Reservasi (dd/mm/yyyy) *</label><input class="f-input" id="fTgl" placeholder="23/09/2026"></div>
+          <div><label class="f-label">Tipe Order *</label>
+            <select class="f-input" id="fTipe">
+              <option value="RESERVASI">RESERVASI</option>
+              <option value="CAPEX">CAPEX</option>
+              <option value="OHC">OHC</option>
+              <option value="MO">MO</option>
+              <option value="WBS">WBS</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-row">
+          <div><label class="f-label">NO CAPEX</label><input class="f-input" id="fNoCapex" placeholder="diisi bila Tipe Order = CAPEX"></div>
           <div><label class="f-label">Divisi *</label>
             <select class="f-input" id="fDivisi">
               <option value="">— Pilih Divisi —</option>
@@ -480,7 +493,7 @@ var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
 var SYNC_ERROR = null;
-var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all' };
+var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all', tipeFilter:'all', ageDiv:'all', ovF:{div:'all', st:'all', kep:'all', tipe:'all', per:'all'} };
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
   if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
@@ -504,6 +517,7 @@ var TABS = [
   {id:'overview', label:'Overview', icon:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'},
   {id:'jenis',   label:'Jenis Order', icon:'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>'},
   {id:'divisi',  label:'Per Divisi', icon:'<circle cx="9" cy="8" r="3"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 4a3 3 0 0 1 0 6"/><path d="M22 21v-1a6 6 0 0 0-4-5.6"/>'},
+  {id:'tipe',    label:'Tipe Order', icon:'<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>'},
   {id:'status',  label:'Status & Approval', icon:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5.5"/>'},
   {id:'aging',   label:'Aging Order', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'},
   {id:'kualitas', label:'Kualitas Data', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>'},
@@ -583,6 +597,8 @@ function normalize(raw){
   var ket = get('Keterangan');
   var keperluan = get('Keperluan Order') || '—';
   var arrivalRaw = get('Status Kedatangan');
+  var tipe = get('Tipe Order');      /* kolom baru (RESERVASI/CAPEX/OHC/MO/WBS) */
+  var noCapex = get('NO CAPEX');     /* kolom baru */
 
   var items = parseItems(jenis);
   var dateObj = parseDMY(tgl) || parseDMY(ts);
@@ -598,6 +614,7 @@ function normalize(raw){
     raw: raw,
     ts: ts, tgl: tgl, divisi: divisi, jenis: jenis, pr: pr, po: po,
     a1: a1, a2: a2, ket: ket, keperluan: keperluan,
+    tipe: tipe, noCapex: noCapex,
     items: items, hasPO: hasPO, appr1: appr1, appr2: appr2,
     status: arr.label, statusKey: arr.key, statusColor: arr.color, arrivalRaw: arrivalRaw,
     flow: flow, flowKey: !hasPO ? 'nopo' : (!appr1 || !appr2) ? 'wait' : 'done',
@@ -612,7 +629,8 @@ function loadFromSnapshot(){
     return normalize({
       'Timestamp':r[0], 'Tanggal Input Reservasi':r[1], 'Divisi':r[2], 'Jenis Order':r[3],
       'Nomor PR':r[4], 'Nomor PO':r[5], 'Approval 1':r[6], 'Approval 2':r[7],
-      'Keterangan':r[8], 'Keperluan Order':r[9], 'Status Kedatangan':r[10]
+      'Keterangan':r[8], 'Keperluan Order':r[9], 'Status Kedatangan':r[10],
+      'Tipe Order':r[11] || '', 'NO CAPEX':r[12] || ''
     });
   });
 }
@@ -925,7 +943,9 @@ var IC = {
   alert:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
   check:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5.5"/></svg>',
   edit:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4L8 20l-5 1 1-5L17 3z"/></svg>',
-  trash:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+  trash:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+  tag:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>',
+  help:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>'
 };
 
 function statusGroups(){
@@ -947,6 +967,7 @@ var DIVISI_FORM = ['PG2','FM4','OP2'];
 var KEPERLUAN_FORM = ['Kantor','Spareparts Engine','Spareparts Irrigator','Spareparts Sumur Bor','Unit inventaris','Lain - lain'];
 var APPROVAL_FORM = ['Sudah','Belum'];
 var ARRIVAL_FORM = ['Sudah','Proses','Belum'];
+var TIPE_FORM = ['RESERVASI','CAPEX','OHC','MO','WBS'];
 
 var DATA_ISSUES = [];
 
@@ -1035,6 +1056,20 @@ function validateData(){
     else if(ARRIVAL_FORM.indexOf(r.arrivalRaw) < 0){
       add('Status Kedatangan','warn','Nilai "'+r.arrivalRaw+'" di luar opsi form (Sudah/Proses/Belum)','Gunakan Sudah, Proses, atau Belum', r.arrivalRaw);
     }
+    /* Tipe Order (wajib di form baru; baris lama belum mengisi — warning, bukan error) */
+    if(!r.tipe){
+      add('Tipe Order','warn','Tipe Order kosong — kolom baru di form (RESERVASI/CAPEX/OHC/MO/WBS)','Edit baris ini dan pilih tipe order (kolom baru sejak Okt 2026)', '');
+    } else if(TIPE_FORM.indexOf(r.tipe) < 0){
+      var stp = suggestOption(r.tipe, TIPE_FORM);
+      add('Tipe Order','warn','Tipe "'+r.tipe+'" tidak ada di daftar form','Gunakan: RESERVASI / CAPEX / OHC / MO / WBS', r.tipe);
+    }
+    /* NO CAPEX (opsional; wajib bila tipe CAPEX) */
+    if(r.tipe === 'CAPEX' && !r.noCapex){
+      add('NO CAPEX','warn','Order CAPEX tanpa No CAPEX','Isi nomor CAPEX pada baris ini', '');
+    }
+    if(r.noCapex && r.tipe && r.tipe !== 'CAPEX'){
+      add('NO CAPEX','info','No CAPEX terisi tetapi tipe order '+r.tipe+' (bukan CAPEX)','Pastikan tipe order memang CAPEX, atau kosongkan No CAPEX', r.noCapex);
+    }
     /* Umur ekstrem */
     if(r.age != null && r.age > 90 && r.statusKey !== 'sudah'){
       add('Umur Order','warn','Umur order '+r.age+' hari & belum datang','Periksa tanggal order atau perbarui status kedatangannya', r.age + ' hari');
@@ -1067,47 +1102,68 @@ function updateQaPill(){
   }
 }
 
+/* ============ FILTER BASIS ============ */
+/* Baris yang terlihat setelah filter Overview (Divisi/Status/Keperluan/Tipe/Periode) */
+function ovRows(){
+  var f = state.ovF;
+  return ROWS.filter(function(r){
+    if(f.div !== 'all' && r.divisi !== f.div) return false;
+    if(f.st !== 'all' && r.statusKey !== f.st) return false;
+    if(f.kep !== 'all' && r.keperluan !== f.kep) return false;
+    if(f.tipe !== 'all' && (r.tipe || '') !== f.tipe) return false;
+    if(f.per !== 'all'){
+      if(f.per === 'ytd'){
+        if(!r.date || r.date.getFullYear() !== new Date().getFullYear()) return false;
+      } else {
+        if(r.age == null || r.age > +f.per) return false;
+      }
+    }
+    return true;
+  });
+}
+/* Pool aging: basis filter global Overview, dikecualikan sudah-datang (kecuali di-toggle),
+   plus filter divisi lokal tab Aging */
+function agingScope(){
+  var scoped = ovRows();
+  if(state.ageDiv !== 'all') scoped = scoped.filter(function(r){ return r.divisi === state.ageDiv; });
+  return scoped;
+}
+function agingPool(){
+  return agingScope().filter(function(r){ return state.showArrivedAging || r.statusKey !== 'sudah'; });
+}
+
 function renderOverview(){
-  var total = ROWS.length;
-  var withPO = ROWS.filter(function(r){ return r.hasPO; }).length;
-  var noPO = ROWS.filter(function(r){ return !r.hasPO; }).length;
-  var apprPending = ROWS.filter(function(r){ return !r.appr1 || !r.appr2; }).length;
-  var done = ROWS.filter(function(r){ return r.flowKey==='done'; }).length;
-  var arrived = ROWS.filter(function(r){ return r.statusKey==='sudah'; }).length;
-  var pendingArr = ROWS.filter(function(r){ return r.statusKey!=='sudah'; }).length;
-  var itemLines = 0, qtyTotal = 0;
-  ROWS.forEach(function(r){ r.items.forEach(function(it){ itemLines++; qtyTotal += splitQty(it).qty; }); });
-  var warnCount = ROWS.filter(function(r){ var c=agingClass(r); return c==='warn'||c==='crit'; }).length;
-  var critCount = ROWS.filter(function(r){ return agingClass(r)==='crit'; }).length;
+  var R = ovRows();
+  var total = R.length;
+  var withPO = R.filter(function(r){ return r.hasPO; }).length;
+  var noPO = R.filter(function(r){ return !r.hasPO; }).length;
+  var apprPending = R.filter(function(r){ return !r.appr1 || !r.appr2; }).length;
+  var done = R.filter(function(r){ return r.flowKey==='done'; }).length;
+  var arrived = R.filter(function(r){ return r.statusKey==='sudah'; }).length;
+  var warnCount = R.filter(function(r){ var c=agingClass(r); return c==='warn'||c==='crit'; }).length;
+  var critCount = R.filter(function(r){ return agingClass(r)==='crit'; }).length;
 
   /* per divisi */
-  var byD = {}; ROWS.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
+  var byD = {}; R.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
   var divBars = Object.keys(byD).sort(function(a,b){return byD[b]-byD[a];}).map(function(d){
     return {label:d, value:byD[d], color:divisiColor(d), drill:'div:'+d};
   });
 
-  /* status kedatangan (kolom baru) */
-  var sParts = statusGroups();
-  sParts.forEach(function(p){ p.drill = 'stv:'+p.key; });
-
-  /* per status kedatangan per divisi */
-  var arrByDiv = divisiList().map(function(d){
-    var rs = ROWS.filter(function(r){ return r.divisi===d; });
-    var arrivedD = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
-    var tot = rs.length;
-    return { label:d, value:tot, arrived:arrivedD, color:divisiColor(d) };
+  /* status kedatangan */
+  var sgOrder = [], sgCounts = {};
+  R.forEach(function(r){
+    var k = r.statusKey || 'kosong';
+    if(!sgOrder.some(function(o){ return o.key===k; })) sgOrder.push({ key:k, label:r.status, color:r.statusColor });
+    sgCounts[k] = (sgCounts[k]||0)+1;
   });
+  var sParts = sgOrder.map(function(o){ return { key:o.key, label:o.label, value:sgCounts[o.key]||0, color:o.color, drill:'stv:'+o.key }; });
 
-  /* trend bulanan */
-  var byM = {}; ROWS.forEach(function(r){ if(r.mkey){ byM[r.mkey]=(byM[r.mkey]||0)+1; } });
-  var trend = Object.keys(byM).sort().map(function(k){ return {label:k, value:byM[k]}; });
-
-  /* top items */
-  var itemCount = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); itemCount[n]=(itemCount[n]||0)+1; }); });
-  var topItems = Object.keys(itemCount).map(function(n){return {label:n, value:itemCount[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
-  topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; t.drill = 'item:'+t.label; });
-
-  /* bars kedatangan per divisi (stack) */
+  /* kedatangan per divisi */
+  var arrByDiv = Object.keys(byD).map(function(d){
+    var rs = R.filter(function(r){ return r.divisi===d; });
+    var arrivedD = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
+    return { label:d, value:rs.length, arrived:arrivedD, color:divisiColor(d) };
+  });
   var arrBars = arrByDiv.map(function(d){
     var pct = d.value ? Math.round(d.arrived/d.value*100) : 0;
     return '<div style="margin-bottom:12px"><div class="hbar-label"><span>'+esc(d.label)+'</span><span class="hbar-val">'+nf(d.arrived)+'/'+nf(d.value)+' datang</span></div>'
@@ -1117,15 +1173,91 @@ function renderOverview(){
       + '</div></div>';
   }).join('');
 
+  /* tren bulanan */
+  var byM = {}; R.forEach(function(r){ if(r.mkey){ byM[r.mkey]=(byM[r.mkey]||0)+1; } });
+  var trend = Object.keys(byM).sort().map(function(k){ return {label:k, value:byM[k]}; });
+
+  /* top items */
+  var itemCount = {}; R.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); itemCount[n]=(itemCount[n]||0)+1; }); });
+  var topItems = Object.keys(itemCount).map(function(n){return {label:n, value:itemCount[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
+  topItems.forEach(function(t,i){ t.color = ['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][i%6]; t.drill = 'item:'+t.label; });
+
+  /* ===== ANALISA BARU ===== */
+  var TIPE_COLORS = {'RESERVASI':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
+  var byTipe = {};
+  R.forEach(function(r){ var t = r.tipe || '(belum diisi)'; byTipe[t]=(byTipe[t]||0)+1; });
+  var tipeBars = Object.keys(byTipe).sort(function(a,b){return byTipe[b]-byTipe[a];}).map(function(t){
+    return { label:t, value:byTipe[t], color:TIPE_COLORS[t] || '#94a3b8', drill:'tipe:'+t };
+  });
+
+  var buckets = [
+    {label:'0-6 hr (aman)', max:6, color:'#10b981'},
+    {label:'7-13 hr (warning)', max:13, color:'#f59e0b'},
+    {label:'14-29 hr (kritis)', max:29, color:'#ef4444'},
+    {label:'30+ hr (sangat lama)', max:Infinity, color:'#7f1d1d'}
+  ];
+  var notArrived = R.filter(function(r){ return r.statusKey !== 'sudah'; });
+  var ageHist = buckets.map(function(b, i){
+    var lo = i === 0 ? -1 : buckets[i-1].max;
+    var n = notArrived.filter(function(r){ return r.age != null && r.age > lo && r.age <= b.max; }).length;
+    return { label:b.label, value:n, color:b.color };
+  });
+
+  function pipeRow(label, n, color){
+    var pct = total ? Math.round(n/total*100) : 0;
+    return '<div style="margin-bottom:12px">'
+      + '<div class="hbar-label"><span>'+label+'</span><span class="hbar-val">'+nf(n)+'/'+nf(total)+' &middot; '+pct+'%</span></div>'
+      + '<div style="height:9px;border-radius:99px;background:#eef0f4;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+'"></div></div>'
+      + '</div>';
+  }
+  var pipeline = pipeRow('PO dibuat', withPO, '#0ea5e9')
+    + pipeRow('Approval 1 &amp; 2 lengkap', done, '#8b5cf6')
+    + pipeRow('Barang sudah datang', arrived, '#10b981');
+
+  var oldest = notArrived.filter(function(r){ return r.age != null; }).sort(function(a,b){ return b.age-a.age; }).slice(0,5);
+  var oldestHtml = oldest.length ? oldest.map(function(r){
+    var ac = agingClass(r);
+    var col = ac==='crit' ? '#ef4444' : (ac==='warn' ? '#f59e0b' : '#10b981');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px">'
+      + '<span class="badge" style="background:'+hexA(col,0.14)+';color:'+col+'"><span class="dot"></span>'+nf(r.age)+' hr</span>'
+      + '<div style="min-width:0;flex:1">'
+      + '<div class="mono" style="font-weight:700">PR '+(r.pr?esc(r.pr):'&mdash;')+(r.po?' &middot; PO '+esc(r.po):'')+'</div>'
+      + '<div class="mini" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.items[0]||'')+(r.items.length>1?' +'+(r.items.length-1)+' item':'')+'</div>'
+      + '</div>'
+      + '<span class="badge divi">'+esc(r.divisi)+'</span>'
+      + '</div>';
+  }).join('') : '<div class="empty">Semua order dalam filter ini sudah datang &#10003;</div>';
+
+  /* ===== FILTER BAR ===== */
+  var activeF = (state.ovF.div!=='all') + (state.ovF.st!=='all') + (state.ovF.kep!=='all') + (state.ovF.tipe!=='all') + (state.ovF.per!=='all');
+  function sel(id, cur, opts){
+    return '<select class="select" id="'+id+'">' + opts.map(function(o){
+      return '<option value="'+esc(o[0])+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';
+    }).join('') + '</select>';
+  }
+  var uniqAll = function(fn){ var m = {}; ROWS.forEach(function(r){ var v = fn(r); if(v) m[v]=1; }); return Object.keys(m).sort(); };
+  var fBar = sel('ovDiv', state.ovF.div, [['all','Semua Divisi']].concat(uniqAll(function(r){ return r.divisi; }).map(function(d){ return [d,d]; })))
+    + sel('ovSt', state.ovF.st, [['all','Semua Status Kedatangan']].concat(uniqAll(function(r){ return r.statusKey; }).map(function(k){ return [k,'Status: '+k]; })))
+    + sel('ovKep', state.ovF.kep, [['all','Semua Keperluan']].concat(uniqAll(function(r){ return r.keperluan==='—'?'':r.keperluan; }).map(function(k){ return [k,k]; })))
+    + sel('ovTipe', state.ovF.tipe, [['all','Semua Tipe Order']].concat(['RESERVASI','CAPEX','OHC','MO','WBS'].map(function(t){ return [t,t]; })))
+    + sel('ovPer', state.ovF.per, [['all','Semua Periode'],['30','30 hari terakhir'],['90','90 hari terakhir'],['180','180 hari terakhir'],['ytd','Tahun ini']])
+    + (activeF ? '<button class="btn" id="ovReset" title="Hapus semua filter">&#10005; Reset ('+activeF+')</button>' : '');
+
+  var filteredNote = activeF ? ' &mdash; <b>terfilter</b>' : '';
+
   return '<section class="tab-page">'
-    + '<div class="toolbar"><span class="count-pill">'+nf(total)+' order tercatat · terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'—')+'</span><span class="spacer"></span><span class="mini">Auto-refresh 5 menit · klik kartu kategori / legenda / bar untuk detail order</span></div>'
+    + '<div class="toolbar">'
+    + '<span class="count-pill">'+nf(total)+' dari '+nf(ROWS.length)+' order'+filteredNote+' &middot; terakhir sync '+(LAST_SYNC?LAST_SYNC.toLocaleString('id-ID'):'&mdash;')+'</span>'
+    + '<span class="spacer"></span><span class="mini">klik kartu kategori / legenda / bar untuk detail order</span>'
+    + '</div>'
+    + '<div class="toolbar" style="gap:8px;flex-wrap:wrap">'+fBar+'</div>'
     + '<div class="grid cols-6">'
-    + kpi(IC.docs, nf(total), 'Total Order (PR)', 'jumlah baris order masuk', '#4f46e5', 'ov-all')
+    + kpi(IC.docs, nf(total), 'Total Order (PR)', 'sesuai filter aktif', '#4f46e5', 'ov-all')
     + kpi(IC.box, nf(withPO), 'PO Dibuat', 'order yang sudah ada Nomor PO', '#0ea5e9', 'ov-po')
     + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'nomor PO belum dibuat', '#ef4444', 'ov-nopo')
     + kpi(IC.clock, nf(apprPending), 'Approval Belum Lengkap', 'approval 1 / 2 belum lengkap', '#f59e0b', 'ov-waitappr')
     + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'ov-arrived')
-    + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis · ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444', 'ov-warn')
+    + kpi(IC.alert, nf(warnCount), 'Warning Aging', critCount+' kritis &middot; ambang '+state.warnTh+'&ndash;'+state.critTh+' hari', '#ef4444', 'ov-warn')
     + '</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Status Kedatangan</h3>'+donut(sParts, 168)+'</div>'
@@ -1135,23 +1267,32 @@ function renderOverview(){
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 6-8"/><path d="M14 7h4v4"/></svg>Tren Order per Bulan</h3>'+lineChart(trend)+'</div>'
     + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7 7 .3-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.3 9 8z"/></svg>Item Paling Sering Dipesan</h3>'+hbar(topItems)+'</div>'
     + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>Distribusi Tipe Order</h3>'+hbar(tipeBars)+'</div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>Rentang Umur Order (belum datang)</h3>'+hbar(ageHist)+'</div>'
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Kelengkapan Proses</h3>'+pipeline+'<p class="hint">Persentase dihitung dari '+nf(total)+' order dalam filter aktif.</p></div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7 7 .3-5.5 4.5 2 7-6.5-4-6.5 4 2-7L2 9.3 9 8z"/></svg>5 Order Terlama Belum Datang</h3>'+oldestHtml+'</div>'
+    + '</div>'
     + '<div class="card" style="margin-top:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Kedatangan per Divisi</h3><div class="hbars">'+arrBars+'</div>'
-    + '<p class="hint">Hijau = sudah datang · Kuning = belum/proses. Berdasarkan kolom "Status Kedatangan" di sheet.</p></div>'
+    + '<p class="hint">Hijau = sudah datang &middot; Kuning = belum/proses. Berdasarkan kolom "Status Kedatangan" di sheet.</p></div>'
     + '</section>';
 }
 
 function renderJenis(){
+  var SRC = ovRows();
   var items = [];
-  ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); items.push({name:q.name, qty:q.qty, unit:q.unit, row:r}); }); });
-  var names = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var n=splitQty(it).name.toLowerCase(); names[n]=(names[n]||0)+1; }); });
+  SRC.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); items.push({name:q.name, qty:q.qty, unit:q.unit, row:r}); }); });
+  var names = {}; SRC.forEach(function(r){ r.items.forEach(function(it){ var n=splitQty(it).name.toLowerCase(); names[n]=(names[n]||0)+1; }); });
   var top = Object.keys(names).map(function(n){return {label:n, value:names[n]};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
   top.forEach(function(t,i){ t.color=['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b','#ef4444'][i%10]; });
 
-  var byKep = {}; ROWS.forEach(function(r){ byKep[r.keperluan]=(byKep[r.keperluan]||0)+1; });
+  var byKep = {}; SRC.forEach(function(r){ byKep[r.keperluan]=(byKep[r.keperluan]||0)+1; });
   var kepParts = Object.keys(byKep).sort(function(a,b){return byKep[b]-byKep[a];}).map(function(k){ return {label:k, value:byKep[k], color:['#4f46e5','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ec4899'][Object.keys(byKep).indexOf(k)%6], drill:'kep:'+k}; });
 
   var qtySum = items.reduce(function(s,i){ return s+i.qty; }, 0);
-  var qtyByName = {}; ROWS.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); qtyByName[n]=(qtyByName[n]||0)+q.qty; }); });
+  var qtyByName = {}; SRC.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); qtyByName[n]=(qtyByName[n]||0)+q.qty; }); });
   var topQty = Object.keys(qtyByName).map(function(n){return {label:n, value:qtyByName[n], drill:'item:'+n};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
 
   var itemRows = items.map(function(i){
@@ -1183,11 +1324,151 @@ function renderJenis(){
     + '</section>';
 }
 
+/* ============ TAB TIPE ORDER ============ */
+var TIPE_LIST = ['RESERVASI','CAPEX','OHC','MO','WBS'];
+var TIPE_COLORS = {'RESERVASI':'#4f46e5','CAPEX':'#8b5cf6','OHC':'#0ea5e9','MO':'#14b8a6','WBS':'#f59e0b'};
+
+function renderTipe(){
+  var rows = ovRows().filter(function(r){
+    if(state.tipeFilter==='all') return true;
+    if(state.tipeFilter==='__EMPTY__') return (r.tipe||'') === '';
+    return (r.tipe||'') === state.tipeFilter;
+  });
+  var tipe = function(r){ return r.tipe || ''; };
+  var tCount = {}, tArrived = {}, tPO = {}, tAging = {};
+  var filled = 0, capexTanpaNo = [], noCapex = [];
+  rows.forEach(function(r){
+    var t = tipe(r);
+    if(t){ filled++; tCount[t]=(tCount[t]||0)+1; if(r.statusKey==='sudah') tArrived[t]=(tArrived[t]||0)+1; if(r.hasPO) tPO[t]=(tPO[t]||0)+1; if(r.age!=null){ tAging[t]=(tAging[t]||0)+r.age; } }
+    if(t==='CAPEX' && !r.noCapex) capexTanpaNo.push(r);
+    if(r.noCapex) noCapex.push(r);
+  });
+
+  var kpiTipe = TIPE_LIST.map(function(t){
+    var n = tCount[t]||0;
+    var pct = rows.length ? Math.round(n/rows.length*100) : 0;
+    var desc = pct+'% dari order';
+    if(n){ var arr = tArrived[t]||0; var po = tPO[t]||0; var ag = tAging[t]||0;
+      desc += ' &middot; '+arr+' datang &middot; '+po+' PO'; }
+    return kpi(IC.tag, nf(n), t, desc, TIPE_COLORS[t], 'tipe:'+t);
+  }).join('');
+
+  var belum = rows.length - filled;
+  kpiTipe += kpi(IC.help, nf(belum), 'Tipe Belum Diisi', 'baris lama sebelum kolom baru aktif', '#94a3b8', 'tipe:__EMPTY__');
+
+  /* komposisi tipe x divisi (hbar grup) */
+  var divs = {}; rows.forEach(function(r){ if(r.tipe) divs[r.divisi]=1; });
+  divs = Object.keys(divs).sort();
+  var txRows = divs.map(function(d){
+    var cells = TIPE_LIST.map(function(t){
+      var n = rows.filter(function(r){ return r.divisi===d && tipe(r)===t; }).length;
+      return { t:t, n:n };
+    });
+    return { div:d, cells:cells };
+  });
+  var txHtml = txRows.map(function(row){
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      + '<div style="width:60px;flex:none;font-size:12px;font-weight:700">'+esc(row.div)+'</div>'
+      + '<div style="flex:1;display:flex;gap:6px;flex-wrap:wrap">'
+      + row.cells.map(function(c){
+          var t = c.n ? (c.n + ' ' + c.t) : ('0 ' + c.t);
+          return '<button class="btn mini-tipe" data-drill="tipe:'+c.t+'&div:'+row.div+'" title="'+c.t+' di '+row.div+'" style="background:'+hexA(TIPE_COLORS[c.t], c.n ? 0.18 : 0.05)+';color:'+(c.n ? TIPE_COLORS[c.t] : '#9aa3b2')+';font-weight:600;cursor:'+(c.n ? 'pointer' : 'default')+'">'+nf(c.n)+' '+c.t+'</button>';
+        }).join('')
+      + '</div></div>';
+  }).join('');
+
+  var sParts = TIPE_LIST.filter(function(t){ return tCount[t]; }).map(function(t){
+    return { key:t, label:t, value:tCount[t]||0, color:TIPE_COLORS[t], drill:'tipe:'+t };
+  });
+
+  /* daftar CAPEX tanpa NO CAPEX */
+  var capexNoList = capexTanpaNo.length ? capexTanpaNo.map(function(r){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px">'
+      + '<span class="badge" style="background:#8b5cf614;color:#8b5cf6"><span class="dot"></span>CAPEX</span>'
+      + '<div style="min-width:0;flex:1">'
+      + '<div class="mono" style="font-weight:700">PR '+(r.pr?esc(r.pr):'&mdash;')+(r.po?' &middot; PO '+esc(r.po):'')+'</div>'
+      + '<div class="mini" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.items[0]||'')+(r.items.length>1?' +'+(r.items.length-1)+' item':'')+'</div>'
+      + '</div>'
+      + '<span class="badge divi">'+esc(r.divisi)+'</span>'
+      + '</div>';
+  }).join('') : '<div class="empty">Semua order CAPEX sudah memiliki No CAPEX &#10003;</div>';
+
+  /* daftar CAPEX + NO CAPEX */
+  var capexRows = rows.filter(function(r){ return tipe(r)==='CAPEX'; });
+  var capexTable = capexRows.length ? (
+    '<div class="table-wrap"><table class="tbl"><thead><tr>'
+    + '<th>PR</th><th>PO</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th><th>Status</th><th>Umur</th>'
+    + '</tr></thead><tbody>'
+    + capexRows.map(function(r){
+        var ac = agingClass(r);
+        var col = ac==='crit' ? '#ef4444' : (ac==='warn' ? '#f59e0b' : (ac==='ok' ? '#10b981' : '#9aa3b2'));
+        var noC = r.noCapex ? '<span class="mono">'+esc(r.noCapex)+'</span>' : '<span class="mini" style="color:#ef4444">&mdash; belum diisi</span>';
+        return '<tr>'
+          + '<td class="mono">'+(r.pr?esc(r.pr):'&mdash;')+'</td>'
+          + '<td class="mono">'+(r.po?esc(r.po):'&mdash;')+'</td>'
+          + '<td>'+noC+'</td>'
+          + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+          + '<td class="mini" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.items.join(', ')||'')+'</td>'
+          + '<td><span class="badge" style="background:'+hexA(r.statusColor,0.14)+';color:'+r.statusColor+'"><span class="dot"></span>'+esc(r.status)+'</span></td>'
+          + '<td class="mono" style="color:'+col+'">'+(r.age!=null?nf(r.age)+' hr':'n/a')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>'
+  ) : '<div class="empty">Belum ada order dengan tipe CAPEX. Pilih tipe RESERVASI/CAPEX/OHC/MO/WBS saat menambah order, atau edit baris lama.</div>';
+
+  var totalRows = ovRows().length;
+  return '<section class="tab-page">'
+    + '<div class="toolbar">'
+    + '<span class="count-pill">'+nf(filled)+' / '+nf(totalRows)+' baris memiliki Tipe Order &middot; '+(totalRows?Math.round(filled/totalRows*100):0)+'% terisi</span>'
+    + '<span class="spacer"></span>'
+    + '<select class="select" id="tipeFilter">'
+    + '<option value="all"'+(state.tipeFilter==='all'?' selected':'')+'>Semua Tipe (tab ini)</option>'
+    + TIPE_LIST.map(function(t){ return '<option value="'+t+'"'+(state.tipeFilter===t?' selected':'')+'>'+t+'</option>'; }).join('')
+    + '</select>'
+    + '</div>'
+    + '<div class="grid cols-6">'
+    + kpiTipe
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>Komposisi Tipe Order</h3>'
+    + (filled ? donut(sParts, 168) : '<div class="empty">Kolom "Tipe Order" belum ada isinya. Isi lewat form Tambah/Edit agar analisa tipe aktif.</div>')
+    + '</div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tipe Order &times; Divisi</h3>'
+    + (divs.length ? txHtml : '<div class="empty">Belum ada data tipe.</div>')
+    + '<p class="hint">Klik angka untuk melihat daftar order (gabungan filter tipe + divisi).</p>'
+    + '</div>'
+    + '</div>'
+    + '<div class="grid cols-2" style="margin-top:16px">'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>CAPEX Tanpa No CAPEX ('+capexTanpaNo.length+')</h3>'+capexNoList
+    + (capexTanpaNo.length?'<p class="hint">Lengkapi No CAPEX lewat tombol Edit pada tabel data.</p>':'')
+    + '</div>'
+    + '<div class="card"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Daftar CAPEX &amp; No CAPEX ('+capexRows.length+')</h3>'+capexTable+'</div>'
+    + '</div>'
+    + '<div class="card" style="margin-top:16px">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<h3 style="margin:0"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Semua Order dengan No CAPEX ('+noCapex.length+')</h3>'
+    + (noCapex.length ? '<span class="mini">kolom "NO CAPEX" terisi &mdash; muncul juga di tab Kualitas Data bila tipe &ne; CAPEX</span>' : '')
+    + '</div>'
+    + (noCapex.length ? ('<div class="table-wrap"><table class="tbl"><thead><tr><th>PR</th><th>Tipe</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th></tr></thead><tbody>'
+      + noCapex.map(function(r){
+          return '<tr><td class="mono">'+(r.pr?esc(r.pr):'&mdash;')+'</td>'
+            + '<td>'+(r.tipe?'<span class="badge" style="background:'+hexA(TIPE_COLORS[r.tipe]||'#94a3b8',0.14)+';color:'+(TIPE_COLORS[r.tipe]||'#94a3b8')+'"><span class="dot"></span>'+esc(r.tipe)+'</span>':'<span class="mini">&mdash;</span>')+'</td>'
+            + '<td class="mono">'+esc(r.noCapex)+'</td>'
+            + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
+            + '<td class="mini" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.items.join(', ')||'')+'</td></tr>';
+        }).join('') + '</tbody></table></div>')
+      : '<div class="empty">Belum ada baris dengan No CAPEX terisi.</div>')
+    + '</div>'
+    + '</section>';
+}
+
 function renderDivisi(){
-  var list = divisiList();
-  var byD = {}; ROWS.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
+  var SRC = ovRows();
+  var inScope = {}; SRC.forEach(function(r){ inScope[r.divisi]=1; });
+  var list = divisiList().filter(function(d){ return inScope[d]; });
+  var byD = {}; SRC.forEach(function(r){ byD[r.divisi]=(byD[r.divisi]||0)+1; });
   var cards = list.map(function(d){
-    var rs = ROWS.filter(function(r){ return r.divisi===d; });
+    var rs = SRC.filter(function(r){ return r.divisi===d; });
     var po = rs.filter(function(r){ return r.hasPO; }).length;
     var arrived = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
     var notArrived = rs.filter(function(r){ return r.statusKey!=='sudah'; }).length;
@@ -1212,15 +1493,15 @@ function renderDivisi(){
     + '<div class="grid cols-3">'+cards+'</div>'
     + '<div class="grid cols-2" style="margin-top:16px">'
     + '<div class="card"><h3>Jumlah Order per Divisi</h3>'+hbar(bars)+'</div>'
-    + '<div class="card"><h3>Perbandingan Kedatangan per Divisi</h3>'+divisiStatusBars(list)+'</div>'
+    + '<div class="card"><h3>Perbandingan Kedatangan per Divisi</h3>'+divisiStatusBars(list, SRC)+'</div>'
     + '</div>'
     + '</section>';
 }
 
-function divisiStatusBars(list){
+function divisiStatusBars(list, SRC){
   var html = '<div class="hbars">';
   list.forEach(function(d){
-    var rs = ROWS.filter(function(r){ return r.divisi===d; });
+    var rs = SRC.filter(function(r){ return r.divisi===d; });
     var arrived = rs.filter(function(r){ return r.statusKey==='sudah'; }).length;
     var notArrived = rs.length - arrived;
     var tot = rs.length || 1;
@@ -1239,23 +1520,28 @@ function divisiStatusBars(list){
 }
 
 function renderStatus(){
-  var noPO = ROWS.filter(function(r){ return !r.hasPO; }).length;
-  var waitAppr = ROWS.filter(function(r){ return r.hasPO && r.flowKey==='wait'; }).length;
-  var done = ROWS.filter(function(r){ return r.flowKey==='done'; }).length;
-  var arrived = ROWS.filter(function(r){ return r.statusKey==='sudah'; }).length;
-  var notArrived = ROWS.filter(function(r){ return r.statusKey!=='sudah'; }).length;
-  var a1ok = ROWS.filter(function(r){ return r.appr1; }).length;
-  var a2ok = ROWS.filter(function(r){ return r.appr2; }).length;
-  var total = ROWS.length || 1;
+  var R0 = ovRows();
+  var noPO = R0.filter(function(r){ return !r.hasPO; }).length;
+  var waitAppr = R0.filter(function(r){ return r.hasPO && r.flowKey==='wait'; }).length;
+  var done = R0.filter(function(r){ return r.flowKey==='done'; }).length;
+  var arrived = R0.filter(function(r){ return r.statusKey==='sudah'; }).length;
+  var notArrived = R0.filter(function(r){ return r.statusKey!=='sudah'; }).length;
+  var a1ok = R0.filter(function(r){ return r.appr1; }).length;
+  var a2ok = R0.filter(function(r){ return r.appr2; }).length;
+  var total = R0.length || 1;
 
   /* baris yang perlu perhatian: approval belum lengkap */
-  var pending = ROWS.filter(function(r){ return r.flowKey!=='done'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
+  var pending = R0.filter(function(r){ return r.flowKey!=='done'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
 
   var pendingRows = pending.length ? pending.map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
+    var tipeBadge = r.tipe
+      ? '<span class="badge" style="background:'+hexA(TIPE_COLORS[r.tipe]||'#94a3b8',0.14)+';color:'+(TIPE_COLORS[r.tipe]||'#94a3b8')+'"><span class="dot"></span>'+esc(r.tipe)+'</span>'
+      : '<span class="mini">—</span>';
     return '<tr class="'+cls+'">'
       + '<td class="mono">'+(r.tgl?esc(r.tgl):'—')+'</td>'
+      + '<td>'+tipeBadge+'</td>'
       + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
       + '<td class="mono">'+(r.pr?esc(r.pr):'—')+'</td>'
       + '<td class="mono">'+(r.po?esc(r.po):'<span class="badge crit">tanpa PO</span>')+'</td>'
@@ -1269,7 +1555,7 @@ function renderStatus(){
 
   var steps = [
     {cap:'PR Dibuat', done:total, n:total, color:'#4f46e5', drill:'ov-all'},
-    {cap:'PO Dibuat', n:ROWS.filter(function(r){return r.hasPO;}).length, color:'#0ea5e9', drill:'ov-po'},
+    {cap:'PO Dibuat', n:R0.filter(function(r){return r.hasPO;}).length, color:'#0ea5e9', drill:'ov-po'},
     {cap:'Approval 1', n:a1ok, color:'#8b5cf6', drill:'ap-a1'},
     {cap:'Approval 2', n:a2ok, color:'#10b981', drill:'ap-a2'}
   ];
@@ -1297,10 +1583,9 @@ function renderStatus(){
 
 function renderAging(){
   /* Order dengan Status Kedatangan "Sudah" tidak masuk perhitungan aging/warning (barang telah tiba) */
-  var pool = state.showArrivedAging
-    ? ROWS
-    : ROWS.filter(function(r){ return r.statusKey!=='sudah'; });
-  var excluded = ROWS.length - pool.length;
+  var scope = agingScope();
+  var pool = agingPool();
+  var excluded = scope.length - pool.length;
   var sorted = pool.slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
   var crit = pool.filter(function(r){ return agingClass(r)==='crit'; }).length;
   var warn = pool.filter(function(r){ return agingClass(r)==='warn'; }).length;
@@ -1333,6 +1618,9 @@ function renderAging(){
     + '<div class="toolbar">'
     + '<div class="range-wrap"><label for="warnNum">Ambang warning:</label><input type="number" id="warnNum" class="num-in" min="1" max="365" step="1" value="'+state.warnTh+'" title="Ketik jumlah hari"><span class="mini">hari</span><label for="critNum">Ambang kritis:</label><input type="number" id="critNum" class="num-in" min="1" max="365" step="1" value="'+state.critTh+'" title="Ketik jumlah hari"><span class="mini">hari</span></div>'
     + '<label class="sync-pill wrap-on" style="cursor:pointer" title="Order yang barangnya sudah datang disembunyikan dari daftar aging"><input type="checkbox" id="showArrivedChk"'+(state.showArrivedAging?' checked':'')+' style="accent-color:#10b981"> Tampilkan yang sudah datang ('+nf(excluded)+')</label>'
+    + '<select class="select" id="ageDivFilter"><option value="all"'+(state.ageDiv==='all'?' selected':'')+'>Semua Divisi</option>'
+    + divisiList().map(function(d){ return '<option value="'+esc(d)+'"'+(state.ageDiv===d?' selected':'')+'>'+esc(d)+'</option>'; }).join('')
+    + '</select>'
     + '</div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
     + kpi(IC.alert, nf(crit), 'Kritis', 'umur ≥ '+state.critTh+' hari — segera follow-up', '#ef4444', 'ag-crit')
@@ -1409,11 +1697,13 @@ function renderKualitas(){
 
 function renderTable(){
   var q = state.q.toLowerCase();
-  var rows = ROWS.filter(function(r){
+  var rows = ovRows().filter(function(r){
     if(state.divFilter!=='all' && r.divisi!==state.divFilter) return false;
     if(state.stFilter!=='all' && r.statusKey!==state.stFilter) return false;
+    if(state.tipeFilter==='__EMPTY__' && (r.tipe||'')!=='') return false;
+    if(state.tipeFilter!=='all' && state.tipeFilter!=='__EMPTY__' && (r.tipe||'')!==state.tipeFilter) return false;
     if(q){
-      var hay = (r.divisi+' '+r.pr+' '+r.po+' '+r.jenis+' '+r.ket+' '+r.keperluan+' '+r.status+' '+(r.arrivalRaw||'')).toLowerCase();
+      var hay = (r.divisi+' '+r.pr+' '+r.po+' '+r.jenis+' '+r.ket+' '+r.keperluan+' '+r.status+' '+(r.arrivalRaw||'')+' '+(r.tipe||'')+' '+(r.noCapex||'')).toLowerCase();
       if(hay.indexOf(q)<0) return false;
     }
     return true;
@@ -1429,6 +1719,7 @@ function renderTable(){
       case 'pr': ka=parseInt(a.pr,10)||0; kb=parseInt(b.pr,10)||0; break;
       case 'po': ka=parseInt(a.po,10)||0; kb=parseInt(b.po,10)||0; break;
       case 'status': ka=a.status; kb=b.status; return ka.localeCompare(kb)*srt.sortDir;
+      case 'tipe': ka=a.tipe||''; kb=b.tipe||''; return ka.localeCompare(kb)*srt.sortDir;
       case 'age': ka=a.age==null?-1:a.age; kb=b.age==null?-1:b.age; break;
       default: ka=0; kb=0;
     }
@@ -1478,11 +1769,13 @@ function renderTable(){
     + '<div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="qInput" placeholder="Cari: PR, PO, barang, divisi…" value="'+esc(state.q)+'"></div>'
     + '<select class="select" id="divSel">'+divOpts+'</select>'
     + '<select class="select" id="stSel">'+stOpts+'</select>'
+    + '<select class="select" id="tblTipeSel">'+'<option value="all"'+(state.tipeFilter==='all'?' selected':'')+'>Semua Tipe Order</option>'+TIPE_LIST.map(function(t){ return '<option value="'+t+'"'+(state.tipeFilter===t?' selected':'')+'>'+t+'</option>'; }).join('')+'<option value="__EMPTY__"'+(state.tipeFilter==='__EMPTY__'?' selected':'')+'>(belum diisi)</option>'+'</select>'
     + '<span class="count-pill">'+nf(rows.length)+' / '+nf(ROWS.length)+' baris</span>'
     + '</div>'
     + '<div class="tablewrap"><table>'
     + '<thead><tr>'
     + '<th class="sortable" data-k="tgl">Tanggal'+arrow('tgl')+'</th>'
+    + '<th class="sortable" data-k="tipe">Tipe Order'+arrow('tipe')+'</th>'
     + '<th class="sortable" data-k="divisi">Divisi'+arrow('divisi')+'</th>'
     + '<th class="sortable" data-k="pr">Nomor PR'+arrow('pr')+'</th>'
     + '<th class="sortable" data-k="po">Nomor PO'+arrow('po')+'</th>'
@@ -1513,6 +1806,7 @@ function render(){
   switch(state.tab){
     case 'jenis': html = renderJenis(); break;
     case 'divisi': html = renderDivisi(); break;
+    case 'tipe': html = renderTipe(); break;
     case 'status': html = renderStatus(); break;
     case 'aging': html = renderAging(); break;
     case 'kualitas': html = renderKualitas(); break;
@@ -1525,7 +1819,10 @@ function render(){
 
 /* ============ DRILL-DOWN: klik kategori box → daftar order ============ */
 function drillSpec(key){
-  var byAge = function(f){ return ROWS.filter(f).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); }); };
+  /* basis drill = filter global Overview (konsisten dgn angka KPI yang terlihat) */
+  var byAge = function(f){ return ovRows().filter(f).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); }); };
+  var byPool = function(f){ return agingPool().filter(f).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); }); };
+  var byScope = function(f){ return agingScope().filter(f).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); }); };
   var k = String(key || '');
   if(k==='ov-all')      return {t:'Semua Order (PR)',            c:'#4f46e5', rows:byAge(function(r){ return true; })};
   if(k==='ov-po')       return {t:'PO Dibuat',                   c:'#0ea5e9', rows:byAge(function(r){ return r.hasPO; })};
@@ -1533,10 +1830,10 @@ function drillSpec(key){
   if(k==='ov-waitappr') return {t:'Approval Belum Lengkap', s:'approval 1 / 2 belum lengkap', c:'#f59e0b', rows:byAge(function(r){ return !r.appr1 || !r.appr2; })};
   if(k==='ov-arrived')  return {t:'Sudah Datang',                c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
   if(k==='ov-warn')     return {t:'Warning Aging',               c:'#ef4444', rows:byAge(function(r){ var c2=agingClass(r); return c2==='warn' || c2==='crit'; })};
-  if(k==='ag-crit')     return {t:'Aging Kritis',  s:'umur ≥ '+state.critTh+' hari · belum datang', c:'#ef4444', rows:byAge(function(r){ return agingClass(r)==='crit'; })};
-  if(k==='ag-warn')     return {t:'Aging Warning', s:'umur ≥ '+state.warnTh+' hari · belum datang', c:'#f59e0b', rows:byAge(function(r){ return agingClass(r)==='warn'; })};
-  if(k==='ag-ok')       return {t:'Aman',          s:'umur < '+state.warnTh+' hari · belum datang', c:'#10b981', rows:byAge(function(r){ return agingClass(r)==='ok'; })};
-  if(k==='ag-arr')      return {t:'Sudah Datang',  s:'tidak dihitung aging — barang telah tiba',    c:'#0ea5e9', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
+  if(k==='ag-crit')     return {t:'Aging Kritis',  s:'umur ≥ '+state.critTh+' hari · belum datang', c:'#ef4444', rows:byPool(function(r){ return agingClass(r)==='crit'; })};
+  if(k==='ag-warn')     return {t:'Aging Warning', s:'umur ≥ '+state.warnTh+' hari · belum datang', c:'#f59e0b', rows:byPool(function(r){ return agingClass(r)==='warn'; })};
+  if(k==='ag-ok')       return {t:'Aman',          s:'umur < '+state.warnTh+' hari · belum datang', c:'#10b981', rows:byPool(function(r){ return agingClass(r)==='ok'; })};
+  if(k==='ag-arr')      return {t:'Sudah Datang',  s:'tidak dihitung aging — barang telah tiba',    c:'#0ea5e9', rows:byScope(function(r){ return r.statusKey==='sudah'; })};
   if(k==='st-done')     return {t:'Approval Lengkap',  c:'#10b981', rows:byAge(function(r){ return r.flowKey==='done'; })};
   if(k==='st-wait')     return {t:'Menunggu Approval', c:'#f59e0b', rows:byAge(function(r){ return r.hasPO && r.flowKey==='wait'; })};
   if(k==='st-nopo')     return {t:'Belum Ada PO',      c:'#ef4444', rows:byAge(function(r){ return !r.hasPO; })};
@@ -1544,13 +1841,24 @@ function drillSpec(key){
   if(k==='st-notarr')   return {t:'Belum Datang',      c:'#f59e0b', rows:byAge(function(r){ return r.statusKey!=='sudah'; })};
   if(k==='ap-a1')       return {t:'Approval 1 OK',     c:'#8b5cf6', rows:byAge(function(r){ return r.appr1; })};
   if(k==='ap-a2')       return {t:'Approval 2 OK',     c:'#10b981', rows:byAge(function(r){ return r.appr2; })};
+  if(k.indexOf('tipe:')===0){
+    var rest = k.slice(5);
+    var di = rest.indexOf('&div:');
+    var tp = di === -1 ? rest : rest.slice(0, di);
+    var dd = di === -1 ? null : rest.slice(di + 5);
+    var wantEmpty = tp === '__EMPTY__';
+    var tLabel = wantEmpty ? 'Tipe Order belum diisi' : 'Tipe Order: '+tp;
+    var tCol = TIPE_COLORS[tp] || '#94a3b8';
+    if(dd) return {t:tLabel+' &middot; Divisi '+dd, c:tCol, rows:byAge(function(r){ return ((r.tipe||'') === (wantEmpty ? '' : tp)) && r.divisi === dd; })};
+    return {t:tLabel, c:tCol, rows:byAge(function(r){ return (r.tipe||'') === (wantEmpty ? '' : tp); })};
+  }
   if(k.indexOf('div:')===0){
     var dv = k.slice(4);
     return {t:'Divisi: '+dv, c:divisiColor(dv), rows:byAge(function(r){ return r.divisi===dv; })};
   }
   if(k.indexOf('stv:')===0){
     var kk = k.slice(4);
-    var lbl = kk==='kosong' ? '(belum diisi)' : ((ROWS.filter(function(r){ return r.statusKey===kk; })[0] || {}).status || kk);
+    var lbl = kk==='kosong' ? '(belum diisi)' : ((ovRows().filter(function(r){ return r.statusKey===kk; })[0] || {}).status || kk);
     return {t:'Status Kedatangan: '+lbl, c:'#4f46e5', rows:byAge(function(r){ return r.statusKey===kk; })};
   }
   if(k.indexOf('kep:')===0){
@@ -1642,6 +1950,8 @@ function bindSection(){
   if(ds){ ds.addEventListener('change', function(){ state.divFilter=ds.value; renderTableOnly(); }); }
   var ss = document.getElementById('stSel');
   if(ss){ ss.addEventListener('change', function(){ state.stFilter=ss.value; renderTableOnly(); }); }
+  var ts = document.getElementById('tblTipeSel');
+  if(ts){ ts.addEventListener('change', function(){ state.tipeFilter=ts.value; renderTableOnly(); }); }
 
   var ths = document.querySelectorAll('th.sortable');
   ths.forEach(function(th){
@@ -1685,6 +1995,20 @@ function bindSection(){
       render();
     });
   }
+  /* filter global di tab Overview */
+  [['ovDiv','div'],['ovSt','st'],['ovKep','kep'],['ovTipe','tipe'],['ovPer','per']].forEach(function(p){
+    var el = document.getElementById(p[0]);
+    if(el){ el.addEventListener('change', function(){ state.ovF[p[1]] = el.value; render(); }); }
+  });
+  var ovR = document.getElementById('ovReset');
+  if(ovR){ ovR.addEventListener('click', function(){ state.ovF = {div:'all',st:'all',kep:'all',tipe:'all',per:'all'}; render(); }); }
+  /* filter tab Tipe Order */
+  var tf = document.getElementById('tipeFilter');
+  if(tf){ tf.addEventListener('change', function(){ state.tipeFilter = tf.value; render(); }); }
+  /* filter divisi tab Aging */
+  var adf = document.getElementById('ageDivFilter');
+  if(adf){ adf.addEventListener('change', function(){ state.ageDiv = adf.value; render(); }); }
+
   /* filter level kualitas data */
   document.querySelectorAll('[data-qaf]').forEach(function(el){
     el.addEventListener('click', function(){
@@ -1718,10 +2042,10 @@ function renderTableOnly(){
 /* ============ EXPORT ============ */
 function exportCSV(){
   var rows = state.exportRows && state.exportRows.length ? state.exportRows : ROWS;
-  var head = ['Tanggal','Divisi','Nomor PR','Nomor PO','Jenis Order','Approval 1','Approval 2','Status Kedatangan','Umur (hari)','Keterangan','Keperluan Order'];
+  var head = ['Tanggal','Tipe Order','NO CAPEX','Divisi','Nomor PR','Nomor PO','Jenis Order','Approval 1','Approval 2','Status Kedatangan','Umur (hari)','Keterangan','Keperluan Order'];
   var lines = [head.join(',')];
   rows.forEach(function(r){
-    var cells = [r.tgl, r.divisi, r.pr, r.po, r.jenis.replace(/\n+/g,'; '), r.a1, r.a2, r.status, r.age==null?'':r.age, r.ket, r.keperluan];
+    var cells = [r.tgl, r.tipe||'', r.noCapex||'', r.divisi, r.pr, r.po, r.jenis.replace(/\n+/g,'; '), r.a1, r.a2, r.status, r.age==null?'':r.age, r.ket, r.keperluan];
     lines.push(cells.map(function(c){
       c = String(c==null?'':c);
       if(/^[=+@]/.test(c)) c = "'" + c; /* cegah formula injection saat dibuka di Excel */
@@ -1773,7 +2097,7 @@ function openAddModal(){
   var dd = String(today.getDate()).padStart(2,'0');
   var mm = String(today.getMonth()+1).padStart(2,'0');
   var yyyy = today.getFullYear();
-  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fArrival:'Belum', fKet:'' };
+  var vals = { fDivisi:'', fTgl: dd+'/'+mm+'/'+yyyy, fTipe:'RESERVASI', fNoCapex:'', fPr:'', fPo:'', fJenis:'', fA1:'Belum', fA2:'Belum', fKeperluan:'', fArrival:'Belum', fKet:'' };
   Object.keys(vals).forEach(function(id){ document.getElementById(id).value = vals[id]; });
   toggleModal(true, { note: 'Order baru akan ditulis <b>langsung ke spreadsheet</b> (tab "' + SHEET_NAME + '") melalui Google Apps Script.' });
 }
@@ -1791,6 +2115,20 @@ function openEditModal(k){
   document.getElementById('modalTitle').textContent = 'Edit Order';
   setSelect('fDivisi', r.divisi === 'Tanpa Divisi' ? '' : r.divisi);
   document.getElementById('fTgl').value = r.tgl || '';
+  /* Tipe Order: baris lama (kolom baru belum aktif) → tampilkan opsi "(belum diisi)"
+     secara eksplisit agar tidak diam-diah terisi RESERVASI; user wajib memilih saat simpan */
+  var tipeSel = document.getElementById('fTipe');
+  if(tipeSel){
+    var hasEmpty = false;
+    for(var ti = 0; ti < tipeSel.options.length; ti++){ if(tipeSel.options[ti].value === ''){ hasEmpty = true; break; } }
+    if(!hasEmpty){
+      var tOpt = document.createElement('option');
+      tOpt.value = ''; tOpt.textContent = '(belum diisi)';
+      tipeSel.insertBefore(tOpt, tipeSel.firstChild);
+    }
+  }
+  setSelect('fTipe', r.tipe);
+  document.getElementById('fNoCapex').value = r.noCapex || '';
   document.getElementById('fPr').value = r.pr || '';
   document.getElementById('fPo').value = r.po || '';
   document.getElementById('fJenis').value = (r.items || []).map(function(it){ return '- ' + it; }).join('\n');
@@ -1859,6 +2197,8 @@ function buildVals(forToken){
   var v = {};
   v['Divisi'] = document.getElementById('fDivisi').value.trim();
   v['Tanggal Input Reservasi'] = document.getElementById('fTgl').value.trim();
+  v['Tipe Order'] = document.getElementById('fTipe').value.trim();
+  v['NO CAPEX'] = document.getElementById('fNoCapex').value.trim();
   v['Nomor PR'] = document.getElementById('fPr').value.trim();
   v['Nomor PO'] = document.getElementById('fPo').value.trim();
   v['Jenis Order'] = document.getElementById('fJenis').value.trim();
@@ -1887,6 +2227,7 @@ function validateForm(){
   var miss = [];
   var tgl = document.getElementById('fTgl').value.trim();
   if(!tgl || !parseDMY(tgl)) miss.push(['fTgl','Tanggal Input Reservasi (dd/mm/yyyy)']);
+  if(!document.getElementById('fTipe').value.trim()) miss.push(['fTipe','Tipe Order']);
   if(!document.getElementById('fDivisi').value.trim()) miss.push(['fDivisi','Divisi']);
   if(!document.getElementById('fKeperluan').value.trim()) miss.push(['fKeperluan','Keperluan Order']);
   if(!document.getElementById('fJenis').value.trim()) miss.push(['fJenis','Jenis Order (barang)']);

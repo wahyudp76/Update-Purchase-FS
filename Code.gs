@@ -3,7 +3,7 @@
  *  Menerima aksi ADD / EDIT / DELETE dari dashboard (GitHub Pages)
  *  lalu menuliskannya ke Google Spreadsheet yang sama.
  *
- *  VERSION: 2.0 (11 kolom — termasuk "Status Kedatangan")
+ *  VERSION: 2.1 (13 kolom — termasuk "Status Kedatangan", "Tipe Order", "NO CAPEX")
  *
  *  CARA DEPLOY (sekali saja, atau update):
  *  1. Buka https://script.google.com -> buka project ini.
@@ -15,12 +15,14 @@
  *     {"ok":true,...,"version":"2.0","headers":[...11 kolom...]}
  ************************************************************************/
 
-var VERSION = '2.0';
+var VERSION = '2.1';
 var SECRET = ''; // kosongkan = tanpa kunci; isi string rahasia untuk proteksi sederhana
 var SHEET_ID_FALLBACK = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
 var SHEET_NAME_FALLBACK = 'Response';
 
-/* urutan kolom pada sheet "Response" (A..K) — 11 kolom */
+/* urutan kolom pada sheet "Response" (A..M) — 13 kolom
+ * (kolom baru "Tipe Order" & "NO CAPEX" berada di AKHIR sheet,
+ *  bukan mengikuti urutan pertanyaan di Google Form) */
 var HEADERS = [
   'Timestamp',
   'Tanggal Input Reservasi',
@@ -32,7 +34,9 @@ var HEADERS = [
   'Approval 2',
   'Keterangan',
   'Keperluan Order',
-  'Status Kedatangan'
+  'Status Kedatangan',
+  'Tipe Order',
+  'NO CAPEX'
 ];
 
 /* ---------- akses GET (cek koneksi + versi yang sedang live) ---------- */

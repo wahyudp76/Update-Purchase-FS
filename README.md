@@ -5,13 +5,15 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
 - **Auto-sync**: data di-fetch langsung & otomatis dari Google Sheets setiap 5 menit (bisa dimatikan via toggle).
 - **Klik kategori → detail order (drill-down)**: semua box KPI, bar chart, legenda donut, dan step pipeline bisa diklik — muncul modal berisi daftar order dalam kategori tersebut (lengkap dengan tombol edit/hapus). Tutup dengan ×, tombol Esc, atau klik area gelap.
 - **Fitur**:
-  - **Overview** — total order, PO dibuat, belum ada PO, approval belum lengkap, selesai, warning aging, tren bulanan, order per divisi, status, item terpopuler.
+  - **Filter global (Overview)** — dropdown Divisi, Status Kedatangan, Keperluan, Tipe Order, dan Periode (30/90/180 hari / tahun ini) di bagian atas tab Overview; seluruh KPI, chart, tabel di **semua tab** otomatis mengikuti filter aktif. Tombol **✕ Reset** mengembalikan semua.
+  - **Overview** — total order, PO dibuat, belum ada PO, approval belum lengkap, selesai, warning aging, tren bulanan, order per divisi, status, item terpopuler, **distribusi Tipe Order, rentang umur order yang belum datang, kelengkapan proses (% PO / approval / datang), dan 5 order terlama yang belum datang**.
   - **Jenis Order** — rincian per item/barang, kategori keperluan, top item & total kuantitas.
-  - **Per Divisi** — kartu per divisi (klik untuk filter di Tabel Detail).
+  - **Tipe Order** — KPI per tipe (RESERVASI/CAPEX/OHC/MO/WBS) + jumlah yang belum diisi, donut komposisi, matriks **Tipe × Divisi** (klik untuk drill-down gabungan), daftar **CAPEX tanpa No CAPEX**, tabel CAPEX & No CAPEX, serta tabel semua baris yang memiliki No CAPEX.
+  - **Per Divisi** — kartu per divisi (klik untuk filter di Tabel Detail); mengikuti filter global.
   - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
-  - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh.
-  - **Tabel Detail** — filter (divisi, status), pencarian, sort kolom, dan export CSV.
-  - **Kualitas Data** — deteksi otomatis kesalahan input di semua kolom (field wajib kosong, format tanggal salah, tahun mencurigakan, nilai di luar opsi form, typo keperluan/divisi dengan saran perbaikan, PR duplikat, item tanpa nama, umur ekstrem). Notifikasi pill di header + toast saat sync, detail lokasi (baris sheet, kolom, nilai) + tombol edit langsung.
+  - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh. Tersedia filter divisi lokal + mengikuti filter global.
+  - **Tabel Detail** — filter (divisi, status, tipe order), pencarian (termasuk no CAPEX), sort kolom (termasuk Tipe Order), dan export CSV (13 kolom, termasuk Tipe Order & No CAPEX).
+  - **Kualitas Data** — deteksi otomatis kesalahan input di semua kolom (field wajib kosong, format tanggal salah, tahun mencurigakan, nilai di luar opsi form, typo keperluan/divisi dengan saran perbaikan, PR duplikat, item tanpa nama, umur ekstrem, **Tipe Order kosong/di luar opsi, CAPEX tanpa No CAPEX, No CAPEX terisi padahal tipe bukan CAPEX**). Notifikasi pill di header + toast saat sync, detail lokasi (baris sheet, kolom, nilai) + tombol edit langsung.
 
 ## Sumber data
 
@@ -96,7 +98,9 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
 | Approval 1 / Approval 2 | status approval |
 | Keterangan | catatan |
 | Keperluan Order | kategori keperluan |
-| Status Kedatangan | status barang sudah/belum datang |
+| Status Kedatangan | status barang sudah/proses/belum datang |
+| Tipe Order | RESERVASI / CAPEX / OHC / MO / WBS (kolom baru Okt 2026 — di ujung kanan sheet) |
+| NO CAPEX | nomor CAPEX, wajib bila tipe = CAPEX (kolom baru Okt 2026) |
 
 ## Logika status otomatis
 

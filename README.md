@@ -100,7 +100,7 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
 | Keperluan Order | kategori keperluan |
 | Status Kedatangan | status barang sudah/proses/belum datang |
 | Tipe Order | PR MANUAL / CAPEX / OHC / MO / WBS (opsi "RESERVASI" diubah menjadi "PR MANUAL" di Google Form) (kolom baru Okt 2026 — di ujung kanan sheet) |
-| NO CAPEX | nomor CAPEX, wajib bila tipe = CAPEX (kolom baru Okt 2026) |
+| NO CAPEX | nomor CAPEX (**angka**, mis. 17229), wajib bila tipe = CAPEX (kolom baru Okt 2026) — dashboard memvalidasi angka karena sheet hanya menyimpan nilai numerik di kolom ini |
 
 ## Logika status otomatis
 

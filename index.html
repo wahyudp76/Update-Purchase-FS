@@ -379,7 +379,7 @@ tr.row-crit:hover{background:#ffeded!important}
           </div>
         </div>
         <div class="f-row">
-          <div><label class="f-label">NO CAPEX</label><input class="f-input" id="fNoCapex" placeholder="diisi bila Tipe Order = CAPEX"></div>
+          <div><label class="f-label">NO CAPEX</label><input class="f-input" id="fNoCapex" inputmode="numeric" placeholder="angka No CAPEX, mis. 17229 (bila Tipe = CAPEX)"></div>
           <div><label class="f-label">Divisi *</label>
             <select class="f-input" id="fDivisi">
               <option value="">— Pilih Divisi —</option>
@@ -1067,6 +1067,9 @@ function validateData(){
     /* NO CAPEX (opsional; wajib bila tipe CAPEX) */
     if(r.tipe === 'CAPEX' && !r.noCapex){
       add('NO CAPEX','warn','Order CAPEX tanpa No CAPEX','Isi nomor CAPEX pada baris ini', '');
+    }
+    if(r.noCapex && !/^\d+([.,]\d+)?$/.test(r.noCapex)){
+      add('NO CAPEX','info','No CAPEX berupa teks: "'+r.noCapex+'"','Kolom NO CAPEX di sheet saat ini hanya menyimpan angka — gunakan angka (mis. 17229)', r.noCapex);
     }
     if(r.noCapex && r.tipe && r.tipe !== 'CAPEX'){
       add('NO CAPEX','info','No CAPEX terisi tetapi tipe order '+r.tipe+' (bukan CAPEX)','Pastikan tipe order memang CAPEX, atau kosongkan No CAPEX', r.noCapex);
@@ -2225,6 +2228,8 @@ function validateForm(){
   var tgl = document.getElementById('fTgl').value.trim();
   if(!tgl || !parseDMY(tgl)) miss.push(['fTgl','Tanggal Input Reservasi (dd/mm/yyyy)']);
   if(!document.getElementById('fTipe').value.trim()) miss.push(['fTipe','Tipe Order']);
+  var noCx = document.getElementById('fNoCapex').value.trim();
+  if(noCx && !/^\d+([.,]\d+)?$/.test(noCx)) miss.push(['fNoCapex','NO CAPEX harus berupa angka (contoh: 17229) — nilai teks tidak tersimpan di sheet']);
   if(!document.getElementById('fDivisi').value.trim()) miss.push(['fDivisi','Divisi']);
   if(!document.getElementById('fKeperluan').value.trim()) miss.push(['fKeperluan','Keperluan Order']);
   if(!document.getElementById('fJenis').value.trim()) miss.push(['fJenis','Jenis Order (barang)']);

@@ -3,7 +3,7 @@
  *  Menerima aksi ADD / EDIT / DELETE dari dashboard (GitHub Pages)
  *  lalu menuliskannya ke Google Spreadsheet yang sama.
  *
- *  VERSION: 2.1 (13 kolom — termasuk "Status Kedatangan", "Tipe Order", "NO CAPEX")
+ *  VERSION: 2.2 (13 kolom — termasuk "Status Kedatangan", "Tipe Order", "NO CAPEX")
  *
  *  CARA DEPLOY (sekali saja, atau update):
  *  1. Buka https://script.google.com -> buka project ini.
@@ -15,7 +15,7 @@
  *     {"ok":true,...,"version":"2.0","headers":[...11 kolom...]}
  ************************************************************************/
 
-var VERSION = '2.1';
+var VERSION = '2.2';
 var SECRET = ''; // kosongkan = tanpa kunci; isi string rahasia untuk proteksi sederhana
 var SHEET_ID_FALLBACK = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
 var SHEET_NAME_FALLBACK = 'Response';
@@ -76,6 +76,9 @@ function handlePost(e) {
   try { body = JSON.parse(e.postData.contents || '{}'); } catch (err) {
     throw new Error('Body harus JSON valid');
   }
+  /* ref = identitas baris sebelum diedit (PR/Tanggal/Divisi) utk verifikasi
+     bahwa rowId masih menunjuk baris yang sama (antisipasi baris bergeser) */
+  var ref = body.ref || null;
 
   if (SECRET && body.secret !== SECRET) throw new Error('Kunci akses (SECRET) tidak cocok');
 
@@ -90,8 +93,8 @@ function handlePost(e) {
   if (!sheet) throw new Error('Sheet "' + sheetName + '" tidak ditemukan');
 
   if (action === 'add') return addRow(sheet, values);
-  if (action === 'edit') return editRow(sheet, rowId, values);
-  if (action === 'delete') return deleteRow(sheet, rowId, values);
+  if (action === 'edit') return editRow(sheet, rowId, values, ref);
+  if (action === 'delete') return deleteRow(sheet, rowId, values, ref);
 
   throw new Error('Aksi "' + action + '" tidak dikenal (pakai add/edit/delete)');
 }
@@ -138,8 +141,43 @@ function nowStamp() {
          ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
-function locateRow(sheet, rowId, values) {
-  if (rowId && rowId > 1) return rowId; // 1-based nomor baris sheet
+function rowMatchesRef(sheet, row, ref) {
+  /* cocokkan identitas baris dgn referensi dari dashboard (PR > Tanggal+Divisi) */
+  if (!ref) return true;
+  var pr = String(ref['Nomor PR'] || '').trim();
+  if (pr) {
+    var prIdx = colIndex(sheet, 'Nomor PR');
+    return String(sheet.getRange(row, prIdx + 1).getValue()).trim() === pr;
+  }
+  var tgl = String(ref['Tanggal Input Reservasi'] || '').trim();
+  var div = String(ref['Divisi'] || '').trim();
+  if (tgl) {
+    var tIdx = colIndex(sheet, 'Tanggal Input Reservasi');
+    if (String(sheet.getRange(row, tIdx + 1).getDisplayValue()).trim() !== tgl) return false;
+  }
+  if (div) {
+    var dIdx = colIndex(sheet, 'Divisi');
+    if (String(sheet.getRange(row, dIdx + 1).getValue()).trim() !== div) return false;
+  }
+  return true;
+}
+
+function locateRow(sheet, rowId, values, ref) {
+  if (rowId && rowId > 1) {
+    if (rowMatchesRef(sheet, rowId, ref)) return rowId;
+    /* baris bergeser (ada penghapusan/penambahan di sheet) — cari ulang via identitas */
+    if (ref) {
+      var refPr = String(ref['Nomor PR'] || '').trim();
+      if (refPr) {
+        var prIdx2 = colIndex(sheet, 'Nomor PR');
+        var last2 = sheet.getLastRow();
+        for (var r2 = 2; r2 <= last2; r2++) {
+          if (String(sheet.getRange(r2, prIdx2 + 1).getValue()).trim() === refPr) return r2;
+        }
+      }
+    }
+    throw new Error('Baris tujuan sudah bergeser/diubah di spreadsheet — klik Sync lalu ulangi');
+  }
   var pr = String(values['Nomor PR'] || '').trim();
   if (pr) {
     var prIdx = colIndex(sheet, 'Nomor PR');
@@ -158,14 +196,14 @@ function addRow(sheet, values) {
   return { ok: true, action: 'add', row: row, version: VERSION };
 }
 
-function editRow(sheet, rowId, values) {
-  var row = locateRow(sheet, rowId, values);
+function editRow(sheet, rowId, values, ref) {
+  var row = locateRow(sheet, rowId, values, ref);
   setRowValues(sheet, row, values, true); /* preserve kolom yang tak dikirim */
   return { ok: true, action: 'edit', row: row, version: VERSION };
 }
 
-function deleteRow(sheet, rowId, values) {
-  var row = locateRow(sheet, rowId, values);
+function deleteRow(sheet, rowId, values, ref) {
+  var row = locateRow(sheet, rowId, values, ref);
   sheet.deleteRow(row);
   return { ok: true, action: 'delete', row: row, version: VERSION };
 }

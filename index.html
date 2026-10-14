@@ -481,7 +481,7 @@ var SNAPSHOT = [
 function dedupeRows(rows){
   var seen = {};
   return (rows || []).filter(function(r){
-    var sig = [r.ts, r.tgl, r.divisi, r.pr, r.po, r.a1, r.a2, r.ket, r.jenis, r.keperluan, r.status, r.arrivalRaw].join('\u0001');
+    var sig = [r.ts, r.tgl, r.divisi, r.pr, r.po, r.a1, r.a2, r.ket, r.jenis, r.keperluan, r.status, r.arrivalRaw, r.tipe, r.noCapex].join('\u0001');
     if(seen[sig]) return false;
     seen[sig] = true;
     return true;
@@ -803,7 +803,7 @@ function scriptHint(){
     + 'di index.html ATAU buka dashboard dengan param ?scriptUrl=https://script.google.com/macros/s/.../exec';
 }
 
-function callScript(action, rowId, values){
+function callScript(action, rowId, values, ref){
   if(!SCRIPT_URL){
     return Promise.reject(new Error(scriptHint()));
   }
@@ -811,7 +811,7 @@ function callScript(action, rowId, values){
     method:'POST',
     /* text/plain wajib: membuat request jadi "simple request" (tanpa preflight CORS) */
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify({ sheetId: SHEET_ID, sheetName: SHEET_NAME, action: action, rowId: rowId, values: values || {} })
+    body: JSON.stringify({ sheetId: SHEET_ID, sheetName: SHEET_NAME, action: action, rowId: rowId, values: values || {}, ref: ref || null })
   }, 30000, 'Server Apps Script tidak merespons (30 dtk)').then(function(r){ return r.text(); }).then(function(t){
     var j = null;
     try{ j = JSON.parse(t); }catch(e){ throw new Error('Respons bukan JSON: ' + String(t).slice(0,140)); }
@@ -1373,7 +1373,7 @@ function renderTipe(){
       + '<div style="flex:1;display:flex;gap:6px;flex-wrap:wrap">'
       + row.cells.map(function(c){
           var t = c.n ? (c.n + ' ' + c.t) : ('0 ' + c.t);
-          return '<button class="btn mini-tipe" data-drill="tipe:'+c.t+'&div:'+row.div+'" title="'+c.t+' di '+row.div+'" style="background:'+hexA(TIPE_COLORS[c.t], c.n ? 0.18 : 0.05)+';color:'+(c.n ? TIPE_COLORS[c.t] : '#9aa3b2')+';font-weight:600;cursor:'+(c.n ? 'pointer' : 'default')+'">'+nf(c.n)+' '+c.t+'</button>';
+          return '<button class="btn mini-tipe" data-drill="'+esc('tipe:'+c.t+'&div:'+row.div)+'" title="'+esc(c.t+' di '+row.div)+'" style="background:'+hexA(TIPE_COLORS[c.t], c.n ? 0.18 : 0.05)+';color:'+(c.n ? TIPE_COLORS[c.t] : '#9aa3b2')+';font-weight:600;cursor:'+(c.n ? 'pointer' : 'default')+'">'+nf(c.n)+' '+c.t+'</button>';
         }).join('')
       + '</div></div>';
   }).join('');
@@ -1910,12 +1910,7 @@ function openDrill(key){
   var body = document.getElementById('drillBody');
   if(body){
     body.innerHTML = '<div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Status Kedatangan</th><th>Umur</th><th>Aksi</th></tr></thead><tbody>'+trs+'</tbody></table></div>';
-    body.querySelectorAll('[data-edit]').forEach(function(el){
-      el.addEventListener('click', function(){ closeDrill(); openEditModal(el.getAttribute('data-edit')); });
-    });
-    body.querySelectorAll('[data-del]').forEach(function(el){
-      el.addEventListener('click', function(){ closeDrill(); confirmDelete(el.getAttribute('data-del')); });
-    });
+    /* tombol edit/hapus kini ditangani delegasi klik global (data-edit/data-del) */
   }
   var back = document.getElementById('drillBack');
   if(back) back.style.display = 'flex';
@@ -2025,13 +2020,7 @@ function bindSection(){
     });
   });
 
-  /* aksi edit/hapus per baris */
-  document.querySelectorAll('[data-edit]').forEach(function(el){
-    el.addEventListener('click', function(){ openEditModal(el.getAttribute('data-edit')); });
-  });
-  document.querySelectorAll('[data-del]').forEach(function(el){
-    el.addEventListener('click', function(){ confirmDelete(el.getAttribute('data-del')); });
-  });
+  /* aksi edit/hapus per baris kini via delegasi klik global (data-edit/data-del) */
 }
 
 function renderTableOnly(){
@@ -2267,7 +2256,7 @@ async function handleSave(){
         return;
       }
       saveBtn.textContent = 'Menghapus…';
-      await updateGoogleSheet(rowKey(r), 'delete', null);
+      await updateGoogleSheet(rowKey(r), 'delete', null, { 'Nomor PR': r.pr, 'Tanggal Input Reservasi': r.tgl, 'Divisi': r.divisi });
       toast('Order dihapus dari spreadsheet');
       closeModal();
       refresh();
@@ -2292,7 +2281,8 @@ async function handleSave(){
         saveBtn.disabled = false; saveBtn.textContent = 'Simpan';
         return;
       }
-      await updateGoogleSheet(MODAL_ROWKEY, 'edit', vals);
+      var rOld = findRowByKey(MODAL_ROWKEY); /* non-null: sudah diverifikasi di atas */
+      await updateGoogleSheet(MODAL_ROWKEY, 'edit', vals, { 'Nomor PR': (rOld && rOld.pr) || '', 'Tanggal Input Reservasi': (rOld && rOld.tgl) || '', 'Divisi': (rOld && rOld.divisi) || '' });
       toast('Order diperbarui di spreadsheet');
     } else {
       await updateGoogleSheet(null, 'add', vals);
@@ -2309,11 +2299,11 @@ async function handleSave(){
 }
 
 /* penerjemah aksi -> Apps Script web app */
-function updateGoogleSheet(rowId, mode, values){
+function updateGoogleSheet(rowId, mode, values, ref){
   if(!scriptConfigured()){
     return Promise.reject(new Error(scriptHint()));
   }
-  return callScript(mode, rowId != null ? String(rowId) : null, values || {});
+  return callScript(mode, rowId != null ? String(rowId) : null, values || {}, ref);
 }
 
 /* ============ INIT ============ */
@@ -2366,8 +2356,15 @@ document.getElementById('autoSync').addEventListener('change', function(e){
 
 /* ===== drill-down global: klik box kategori di semua tab ===== */
 document.addEventListener('click', function(e){
-  var el = e.target && e.target.closest ? e.target.closest('[data-drill]') : null;
-  if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); }
+  if(!e.target || !e.target.closest) return;
+  var el = e.target.closest('[data-drill]');
+  if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); return; }
+  /* aksi edit/hapus via delegasi: 1 listener utk semua tombol (termasuk drill modal),
+     pengganti ribuan listener per-tombol — lebih cepat & bebas dobol-bind */
+  var ed = e.target.closest('[data-edit]');
+  if(ed){ e.preventDefault(); if(ed.closest('#drillBack')) closeDrill(); openEditModal(ed.getAttribute('data-edit')); return; }
+  var dl = e.target.closest('[data-del]');
+  if(dl){ e.preventDefault(); if(dl.closest('#drillBack')) closeDrill(); confirmDelete(dl.getAttribute('data-del')); return; }
 });
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){ closeDrill(); return; }

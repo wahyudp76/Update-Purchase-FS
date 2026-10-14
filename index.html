@@ -233,6 +233,13 @@ tr.row-crit:hover{background:#ffeded!important}
 /* ---------- Empty / misc ---------- */
 .empty{padding:34px;text-align:center;color:var(--muted);font-size:13px}
 .mini-tipe{padding:5px 10px;border-radius:99px;font-size:11px;border:1px solid transparent;line-height:1.2}
+/* ---------- Paginasi tabel ---------- */
+.pg-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pg-nav{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.pg-btn{padding:4px 10px;font-size:12px;min-width:32px;justify-content:center}
+.pg-cur{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.pg-dots{color:var(--muted);padding:0 3px;font-size:12px}
+.pg-size{padding:4px 8px;font-size:12px}
 .range-wrap{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;flex-wrap:wrap}
 .range-wrap label{font-size:12px;font-weight:700;color:var(--muted)}
 .num-in{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;color:var(--txt);background:#fff}
@@ -494,7 +501,7 @@ var LIVE = false;
 var LAST_SYNC = null;
 var AUTO_TIMER = null;
 var SYNC_ERROR = null;
-var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all', tipeFilter:'all', ageDiv:'all', ovF:{div:'all', st:'all', kep:'all', tipe:'all', per:'all'} };
+var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:7, critTh:14, sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all', tipeFilter:'all', ageDiv:'all', ovF:{div:'all', st:'all', kep:'all', tipe:'all', per:'all'}, pg:{} };
 (function(){
   var m = /[?&]tab=([a-zA-Z]+)/.exec(location.search);
   if(m && TABS.some(function(t){ return t.id===m[1]; })) state.tab = m[1];
@@ -1106,6 +1113,55 @@ function updateQaPill(){
   }
 }
 
+/* ============ PAGINASI TABEL ============ */
+/* state.pg[key] = { page, size, count } — halaman di-reset otomatis ke 1
+   saat jumlah baris berubah (ganti filter / data sync baru) */
+function pgState(key, total){
+  var p = state.pg[key];
+  if(!p) p = state.pg[key] = { page:1, size:10, count:null };
+  if(p.count !== total){ p.page = 1; p.count = total; }
+  var maxPage = Math.max(1, Math.ceil(total / p.size));
+  if(p.page > maxPage) p.page = maxPage;
+  return p;
+}
+function paginate(key, rows){
+  var p = pgState(key, rows.length);
+  return rows.slice((p.page - 1) * p.size, p.page * p.size);
+}
+function pgControls(key, total){
+  if(total <= 10) return ''; /* tabel pendek: tanpa bar paginasi */
+  var p = pgState(key, total);
+  var maxPage = Math.max(1, Math.ceil(total / p.size));
+  var start = (p.page - 1) * p.size + 1;
+  var end = Math.min(total, p.page * p.size);
+  function btn(lbl, pg, dis, aria){
+    return '<button class="btn pg-btn" data-pg="'+key+':'+pg+'"'+(dis?' disabled':'')+' aria-label="'+aria+'" title="'+aria+'">'+lbl+'</button>';
+  }
+  var nums = '';
+  var last = null;
+  for(var i = 1; i <= maxPage; i++){
+    if(i === 1 || i === maxPage || Math.abs(i - p.page) <= 1){
+      nums += '<button class="btn pg-btn'+(i===p.page?' pg-cur':'')+'" data-pg="'+key+':'+i+'">'+i+'</button>';
+      last = i;
+    } else if(last !== 'dots'){
+      nums += '<span class="pg-dots">&hellip;</span>';
+      last = 'dots';
+    }
+  }
+  return '<div class="pg-bar">'
+    + '<span class="mini">Menampilkan '+start+'&ndash;'+end+' dari '+nf(total)+' baris</span>'
+    + '<span class="spacer"></span>'
+    + '<div class="pg-nav">'
+    + btn('&lsaquo;', Math.max(1, p.page - 1), p.page <= 1, 'Halaman sebelumnya')
+    + nums
+    + btn('&rsaquo;', Math.min(maxPage, p.page + 1), p.page >= maxPage, 'Halaman berikutnya')
+    + '</div>'
+    + '<select class="select pg-size" data-pgsz="'+key+'" title="Baris per halaman">'
+    + [10,25,50].map(function(s){ return '<option value="'+s+'"'+(p.size===s?' selected':'')+'>'+s+' / hal</option>'; }).join('')
+    + '</select>'
+    + '</div>';
+}
+
 /* ============ FILTER BASIS ============ */
 /* Baris yang terlihat setelah filter Overview (Divisi/Status/Keperluan/Tipe/Periode) */
 function ovRows(){
@@ -1299,7 +1355,7 @@ function renderJenis(){
   var qtyByName = {}; SRC.forEach(function(r){ r.items.forEach(function(it){ var q=splitQty(it); var n=q.name.toLowerCase(); qtyByName[n]=(qtyByName[n]||0)+q.qty; }); });
   var topQty = Object.keys(qtyByName).map(function(n){return {label:n, value:qtyByName[n], drill:'item:'+n};}).sort(function(a,b){return b.value-a.value;}).slice(0,10);
 
-  var itemRows = items.map(function(i){
+  var itemRows = paginate('jenis', items).map(function(i){
     return '<tr>'
       + '<td>'+esc(i.name)+'</td>'
       + '<td class="mono">'+nf(i.qty)+' '+(i.unit?esc(i.unit):'')+'</td>'
@@ -1324,7 +1380,7 @@ function renderJenis(){
     + '<div class="card"><h3>Keperluan Order</h3>'+donut(kepParts, 168)+'</div>'
     + '</div>'
     + '<div class="card" style="margin-top:16px"><h3>Total Kuantitas per Item (Top 10)</h3>'+hbar(topQty.map(function(t){return {label:t.label, value:t.value, color:'#4f46e5', drill:'item:'+t.label};}))+'</div>'
-    + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div></div>'
+    + '<div class="card" style="margin-top:16px"><h3>Rincian Item per Order</h3><div class="tablewrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Divisi</th><th>PR</th><th>PO</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>'+pgControls('jenis', items.length)+'</div>'
     + '</section>';
 }
 
@@ -1403,7 +1459,7 @@ function renderTipe(){
     '<div class="tablewrap"><table><thead><tr>'
     + '<th>PR</th><th>PO</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th><th>Status</th><th>Umur</th>'
     + '</tr></thead><tbody>'
-    + capexRows.map(function(r){
+    + paginate('capex', capexRows).map(function(r){
         var ac = agingClass(r);
         var col = ac==='crit' ? '#ef4444' : (ac==='warn' ? '#f59e0b' : (ac==='ok' ? '#10b981' : '#9aa3b2'));
         var noC = r.noCapex ? '<span class="mono">'+esc(r.noCapex)+'</span>' : '<span class="mini" style="color:#ef4444">&mdash; belum diisi</span>';
@@ -1417,7 +1473,7 @@ function renderTipe(){
           + '<td class="mono" style="color:'+col+'">'+(r.age!=null?nf(r.age)+' hr':'n/a')+'</td>'
           + '</tr>';
       }).join('')
-    + '</tbody></table></div>'
+    + '</tbody></table></div>' + pgControls('capex', capexRows.length)
   ) : '<div class="empty">Belum ada order dengan tipe CAPEX. Pilih tipe PR MANUAL/CAPEX/OHC/MO/WBS saat menambah order, atau edit baris lama.</div>';
 
   var totalRows = ovRows().length;
@@ -1454,13 +1510,13 @@ function renderTipe(){
     + (noCapex.length ? '<span class="mini">kolom "NO CAPEX" terisi &mdash; muncul juga di tab Kualitas Data bila tipe &ne; CAPEX</span>' : '')
     + '</div>'
     + (noCapex.length ? ('<div class="tablewrap"><table><thead><tr><th>PR</th><th>Tipe</th><th>NO CAPEX</th><th>Divisi</th><th>Jenis Order</th></tr></thead><tbody>'
-      + noCapex.map(function(r){
+      + paginate('nocapex', noCapex).map(function(r){
           return '<tr><td class="mono">'+(r.pr?esc(r.pr):'&mdash;')+'</td>'
             + '<td>'+(r.tipe?'<span class="badge" style="background:'+hexA(TIPE_COLORS[r.tipe]||'#94a3b8',0.14)+';color:'+(TIPE_COLORS[r.tipe]||'#94a3b8')+'"><span class="dot"></span>'+esc(r.tipe)+'</span>':'<span class="mini">&mdash;</span>')+'</td>'
             + '<td class="mono">'+esc(r.noCapex)+'</td>'
             + '<td><span class="badge divi">'+esc(r.divisi)+'</span></td>'
             + '<td class="mini" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.items.join(', ')||'')+'</td></tr>';
-        }).join('') + '</tbody></table></div>')
+        }).join('') + '</tbody></table></div>' + pgControls('nocapex', noCapex.length))
       : '<div class="empty">Belum ada baris dengan No CAPEX terisi.</div>')
     + '</div>'
     + '</section>';
@@ -1537,7 +1593,7 @@ function renderStatus(){
   /* baris yang perlu perhatian: approval belum lengkap */
   var pending = R0.filter(function(r){ return r.flowKey!=='done'; }).slice().sort(function(a,b){ return (b.age||0)-(a.age||0); });
 
-  var pendingRows = pending.length ? pending.map(function(r){
+  var pendingRows = pending.length ? paginate('status', pending).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
     var tipeBadge = r.tipe
@@ -1581,7 +1637,7 @@ function renderStatus(){
     + kpi(IC.check, nf(arrived), 'Sudah Datang', 'Status Kedatangan = Sudah', '#10b981', 'st-arr')
     + kpi(IC.clock, nf(notArrived), 'Belum Datang', 'Status Kedatangan belum/proses', '#f59e0b', 'st-notarr')
     + '</div>'
-    + '<div class="card"><h3>⚠ Order Perlu Tindak Lanjut (Tanpa PO / Approval Belum Lengkap)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Tipe Order</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div></div>'
+    + '<div class="card"><h3>⚠ Order Perlu Tindak Lanjut (Tanpa PO / Approval Belum Lengkap)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Tipe Order</th><th>Divisi</th><th>PR</th><th>PO</th><th>Approval 1</th><th>Approval 2</th><th>Alur</th><th>Status Kedatangan</th><th>Umur</th></tr></thead><tbody>'+pendingRows+'</tbody></table></div>'+pgControls('status', pending.length)+'</div>'
     + '</section>';
 }
 
@@ -1595,7 +1651,7 @@ function renderAging(){
   var warn = pool.filter(function(r){ return agingClass(r)==='warn'; }).length;
   var ok = pool.filter(function(r){ return agingClass(r)==='ok'; }).length;
 
-  var rows = sorted.map(function(r){
+  var rows = paginate('aging', sorted).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
     var blockers = [];
@@ -1632,7 +1688,7 @@ function renderAging(){
     + kpi(IC.check, nf(ok), 'Aman', 'umur < '+state.warnTh+' hari', '#10b981', 'ag-ok')
     + kpi(IC.box, nf(excluded), 'Sudah Datang', 'tidak dihitung aging — barang telah tiba', '#0ea5e9', 'ag-arr')
     + '</div>'
-    + '<div class="card"><h3>Daftar Order Berdasarkan Umur (terlama dulu)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Umur</th><th>Blocker</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + '<div class="card"><h3>Daftar Order Berdasarkan Umur (terlama dulu)</h3><div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Umur</th><th>Blocker</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+pgControls('aging', sorted.length)
     + '<p class="hint">Baris diurutkan dari umur terlama. Order dengan Status Kedatangan <b>Sudah</b> tidak dihitung sebagai warning/kritis karena barangnya telah tiba ('+nf(excluded)+' order dikecualikan) — centang "Tampilkan yang sudah datang" untuk melihatnya. Order lama ditandai kuning (warning) / merah (kritis); kolom "Blocker" menunjukkan alasan belum selesai (tanpa PO / approval belum).</p></div>'
     + '</section>';
 }
@@ -1659,6 +1715,7 @@ function renderKualitas(){
   }).join(' ');
 
   var list = state.qaFilter === 'all' ? iss : iss.filter(function(i){ return i.level === state.qaFilter; });
+  pgState('kualitas', list.length); /* sinkronkan hitungan paginasi walau list kosong */
   var rowsHtml;
   if(!ROWS.length){
     rowsHtml = '<tr><td colspan="10"><div class="empty">Belum ada data</div></td></tr>';
@@ -1667,7 +1724,7 @@ function renderKualitas(){
   } else if(!list.length){
     rowsHtml = '<tr><td colspan="10"><div class="empty">Tidak ada masalah pada level ini</div></td></tr>';
   } else {
-    rowsHtml = list.map(function(i){
+    rowsHtml = paginate('kualitas', list).map(function(i){
       return '<tr>'
         + '<td class="mono">baris '+esc(i.sheetRow)+'</td>'
         + '<td class="mono">'+(i.tgl?esc(i.tgl):'—')+'</td>'
@@ -1694,7 +1751,7 @@ function renderKualitas(){
     + kpi(IC.docs, nf(infos), 'Info', 'perlu diperhatikan', '#0ea5e9')
     + kpi(IC.check, nf(cleanRows), 'Baris Bersih', 'dari '+nf(ROWS.length)+' baris order', '#10b981')
     + '</div>'
-    + '<div class="card"><h3>Detail Kesalahan Input per Kolom</h3><div class="tablewrap"><table><thead><tr><th>Lokasi</th><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Kolom</th><th>Nilai</th><th>Level</th><th>Masalah &amp; Saran Perbaikan</th><th>Aksi</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'
+    + '<div class="card"><h3>Detail Kesalahan Input per Kolom</h3><div class="tablewrap"><table><thead><tr><th>Lokasi</th><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Kolom</th><th>Nilai</th><th>Level</th><th>Masalah &amp; Saran Perbaikan</th><th>Aksi</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+pgControls('kualitas', list.length)
     + '<p class="hint">Validasi mengacu pada struktur Google Form asli (field wajib &amp; daftar opsi resmi). <b>Error</b> = kolom wajib kosong/rusak · <b>Warning</b> = kemungkinan salah input (typo, duplikat, tahun salah) · <b>Info</b> = perlu diperhatikan. Klik ✏️ untuk memperbaiki langsung dari web — perubahan tersimpan ke spreadsheet.</p></div>'
     + '</section>';
 }
@@ -1743,7 +1800,7 @@ function renderTable(){
 
   var arrow = function(k){ return state.sortKey===k ? (state.sortDir===1?' ▲':' ▼') : ''; };
 
-  var trs = rows.map(function(r){
+  var trs = paginate('tabel', rows).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
     var items = '<ul class="cellitems">'+r.items.map(function(it){ return '<li>'+esc(it)+'</li>'; }).join('')+'</ul>';
@@ -1794,7 +1851,7 @@ function renderTable(){
     + '<th>Keperluan</th>'
     + '<th>Keterangan</th>'
     + '<th>Aksi</th>'
-    + '</tr></thead><tbody>'+(trs||'<tr><td colspan="12"><div class="empty">Tidak ada data cocok</div></td></tr>')+'</tbody></table></div>'
+    + '</tr></thead><tbody>'+(trs||'<tr><td colspan="12"><div class="empty">Tidak ada data cocok</div></td></tr>')+'</tbody></table></div>'+pgControls('tabel', rows.length)
     + '</section>';
 }
 
@@ -1887,7 +1944,8 @@ function openDrill(key){
   var spec = drillSpec(key);
   if(!spec){ toast('Kategori tidak dikenal'); return; }
   var rows = spec.rows;
-  var trs = rows.length ? rows.map(function(r){
+  if(state.pg.drill) state.pg.drill.page = 1; /* kategori baru → mulai hal. 1 */
+  var trs = rows.length ? paginate('drill', rows).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
     var k = rowKey(r);
@@ -1912,7 +1970,7 @@ function openDrill(key){
   if(tEl) tEl.innerHTML = esc(spec.t)+' <span class="mini">· '+nf(rows.length)+' order</span>'+(spec.s ? ' <span class="mini">('+esc(spec.s)+')</span>' : '');
   var body = document.getElementById('drillBody');
   if(body){
-    body.innerHTML = '<div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Status Kedatangan</th><th>Umur</th><th>Aksi</th></tr></thead><tbody>'+trs+'</tbody></table></div>';
+    body.innerHTML = '<div class="tablewrap"><table><thead><tr><th>Tanggal</th><th>Divisi</th><th>PR</th><th>PO</th><th>Barang</th><th>Status Kedatangan</th><th>Umur</th><th>Aksi</th></tr></thead><tbody>'+trs+'</tbody></table></div>'+pgControls('drill', rows.length);
     /* tombol edit/hapus kini ditangani delegasi klik global (data-edit/data-del) */
   }
   var back = document.getElementById('drillBack');
@@ -2364,12 +2422,33 @@ document.addEventListener('click', function(e){
   if(!e.target || !e.target.closest) return;
   var el = e.target.closest('[data-drill]');
   if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); return; }
+  /* paginasi: tombol nomor halaman / prev / next */
+  var pgB = e.target.closest('[data-pg]');
+  if(pgB){
+    e.preventDefault();
+    var pk = pgB.getAttribute('data-pg'), ci = pk.indexOf(':');
+    var pKey = pk.slice(0, ci), pTarget = parseInt(pk.slice(ci + 1), 10);
+    if(state.pg[pKey] && isFinite(pTarget) && pTarget >= 1){ state.pg[pKey].page = pTarget; render(); }
+    return;
+  }
   /* aksi edit/hapus via delegasi: 1 listener utk semua tombol (termasuk drill modal),
      pengganti ribuan listener per-tombol — lebih cepat & bebas dobol-bind */
   var ed = e.target.closest('[data-edit]');
   if(ed){ e.preventDefault(); if(ed.closest('#drillBack')) closeDrill(); openEditModal(ed.getAttribute('data-edit')); return; }
   var dl = e.target.closest('[data-del]');
   if(dl){ e.preventDefault(); if(dl.closest('#drillBack')) closeDrill(); confirmDelete(dl.getAttribute('data-del')); return; }
+});
+document.addEventListener('change', function(e){
+  /* paginasi: pilihan baris per halaman (10/25/50) */
+  var el = e.target;
+  if(el && el.matches && el.matches('[data-pgsz]')){
+    var key = el.getAttribute('data-pgsz');
+    if(!state.pg[key]) state.pg[key] = { page:1, size:10, count:null };
+    var sz = parseInt(el.value, 10);
+    if(sz === 10 || sz === 25 || sz === 50) state.pg[key].size = sz;
+    state.pg[key].page = 1;
+    render();
+  }
 });
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape'){ closeDrill(); return; }

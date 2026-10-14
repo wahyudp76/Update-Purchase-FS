@@ -13,6 +13,7 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
   - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
   - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh. Tersedia filter divisi lokal + mengikuti filter global.
   - **Tabel Detail** — filter (divisi, status, tipe order), pencarian (termasuk no CAPEX), sort kolom (termasuk Tipe Order), dan export CSV (13 kolom, termasuk Tipe Order & No CAPEX).
+  - **Paginasi semua tabel panjang** — default **10 baris/halaman**, bisa dipilih **10 / 25 / 50** (Jenis Order, Tipe Order, Status & Approval, Aging, Kualitas Data, Tabel Detail, tabel CAPEX/No CAPEX, dan modal drill-down). Ganti filter/pencarian otomatis kembali ke halaman 1; export CSV tetap mengunduh SEMUA baris hasil filter.
   - **Kualitas Data** — deteksi otomatis kesalahan input di semua kolom (field wajib kosong, format tanggal salah, tahun mencurigakan, nilai di luar opsi form, typo keperluan/divisi dengan saran perbaikan, PR duplikat, item tanpa nama, umur ekstrem, **Tipe Order kosong/di luar opsi, CAPEX tanpa No CAPEX, No CAPEX terisi padahal tipe bukan CAPEX**). Notifikasi pill di header + toast saat sync, detail lokasi (baris sheet, kolom, nilai) + tombol edit langsung.
 
 ## Sumber data

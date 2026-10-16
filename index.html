@@ -1582,7 +1582,8 @@ function divisiStatusBars(list, SRC){
 function renderStatus(){
   var R0 = ovRows();
   var noPO = R0.filter(function(r){ return !r.hasPO; }).length;
-  var waitAppr = R0.filter(function(r){ return r.hasPO && r.flowKey==='wait'; }).length;
+  /* SELARAS dgn KPI Overview: approval belum lengkap dihitung utk SEMUA order (dengan/tanpa PO) */
+  var waitAppr = R0.filter(function(r){ return !r.appr1 || !r.appr2; }).length;
   var done = R0.filter(function(r){ return r.flowKey==='done'; }).length;
   var arrived = R0.filter(function(r){ return r.statusKey==='sudah'; }).length;
   var notArrived = R0.filter(function(r){ return r.statusKey!=='sudah'; }).length;
@@ -1630,7 +1631,7 @@ function renderStatus(){
     + '<div class="card" style="margin-bottom:16px"><h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses (Pipeline)</h3><div class="stepper">'+stepper+'</div></div>'
     + '<div class="grid cols-3" style="margin-bottom:16px">'
     + kpi(IC.check, nf(done), 'Approval Lengkap', 'Approval 1 & 2 lengkap', '#10b981', 'st-done')
-    + kpi(IC.clock, nf(waitAppr), 'Menunggu Approval', 'PO ada, approval belum lengkap', '#f59e0b', 'st-wait')
+    + kpi(IC.clock, nf(waitAppr), 'Approval Belum Lengkap', 'approval 1 / 2 belum lengkap — sama dgn Overview', '#f59e0b', 'st-wait')
     + kpi(IC.alert, nf(noPO), 'Belum Ada PO', 'Nomor PO belum dibuat', '#ef4444', 'st-nopo')
     + '</div>'
     + '<div class="grid cols-2" style="margin-bottom:16px">'
@@ -1903,7 +1904,7 @@ function drillSpec(key){
   if(k==='ag-ok')       return {t:'Aman',          s:'umur < '+state.warnTh+' hari · belum datang', c:'#10b981', rows:byPool(function(r){ return agingClass(r)==='ok'; })};
   if(k==='ag-arr')      return {t:'Sudah Datang',  s:'tidak dihitung aging — barang telah tiba',    c:'#0ea5e9', rows:byScope(function(r){ return r.statusKey==='sudah'; })};
   if(k==='st-done')     return {t:'Approval Lengkap',  c:'#10b981', rows:byAge(function(r){ return r.flowKey==='done'; })};
-  if(k==='st-wait')     return {t:'Menunggu Approval', c:'#f59e0b', rows:byAge(function(r){ return r.hasPO && r.flowKey==='wait'; })};
+  if(k==='st-wait')     return {t:'Approval Belum Lengkap', s:'approval 1 / 2 belum lengkap', c:'#f59e0b', rows:byAge(function(r){ return !r.appr1 || !r.appr2; })};
   if(k==='st-nopo')     return {t:'Belum Ada PO',      c:'#ef4444', rows:byAge(function(r){ return !r.hasPO; })};
   if(k==='st-arr')      return {t:'Sudah Datang',      c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
   if(k==='st-notarr')   return {t:'Belum Datang',      c:'#f59e0b', rows:byAge(function(r){ return r.statusKey!=='sudah'; })};

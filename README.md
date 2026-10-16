@@ -10,7 +10,7 @@ Dashboard untuk memonitor order bahan & spareparts berdasarkan data Google Sheet
   - **Jenis Order** — rincian per item/barang, kategori keperluan, top item & total kuantitas.
   - **Tipe Order** — KPI per tipe (PR MANUAL/CAPEX/OHC/MO/WBS) + jumlah yang belum diisi, donut komposisi, matriks **Tipe × Divisi** (klik untuk drill-down gabungan), daftar **CAPEX tanpa No CAPEX**, tabel CAPEX & No CAPEX, serta tabel semua baris yang memiliki No CAPEX.
   - **Per Divisi** — kartu per divisi (klik untuk filter di Tabel Detail); mengikuti filter global.
-  - **Status & Approval** — pipeline PR→PO→Approval 1→Approval 2 + daftar order yang approval-nya belum lengkap.
+  - **Status & Approval** — pipeline **PR → Approval 1 → Approval 2 → PO** (sesuai alur bisnis: PR harus di-approve dulu, baru tim purchasing melakukan penawaran ke vendor dan menerbitkan PO). KPI: Approval Belum Lengkap, **Siap Penawaran (Menunggu PO)** — PR yang approval-nya sudah lengkap dan siap diproses purchasing, dan Selesai — PO Terbit.
   - **Aging Order** — barang lama jadi *warning* (default ≥7 hari) / *kritis* (default ≥14 hari); ambang bisa **diketik angkanya** (hari) dan **tersimpan otomatis di perangkat** — tidak kembali ke default saat refresh. Tersedia filter divisi lokal + mengikuti filter global.
   - **Tabel Detail** — filter (divisi, status, tipe order), pencarian (termasuk no CAPEX), sort kolom (termasuk Tipe Order), dan export CSV (13 kolom, termasuk Tipe Order & No CAPEX).
   - **Paginasi semua tabel panjang** — default **10 baris/halaman**, bisa dipilih **10 / 25 / 50** (Jenis Order, Tipe Order, Status & Approval, Aging, Kualitas Data, Tabel Detail, tabel CAPEX/No CAPEX, dan modal drill-down). Ganti filter/pencarian otomatis kembali ke halaman 1; export CSV tetap mengunduh SEMUA baris hasil filter.
@@ -106,10 +106,10 @@ Edit variabel `SHEET_ID` dan `SHEET_NAME` di bagian `CONFIG` pada `index.html`.
 ## Logika status otomatis
 
 - **Status Kedatangan** dibaca langsung dari kolom "Status Kedatangan" di sheet: nilai "Sudah"/"Datang"/"Tiba" → hijau; "Belum"/"Proses"/"Menunggu" → kuning; lainnya biru/abu.
-- **Alur proses (flow)** tetap dihitung otomatis untuk tab Status & Approval:
-  - **Belum PO** → Nomor PO kosong.
-  - **Menunggu Approval** → PO ada tapi Approval 1 / 2 belum lengkap.
-  - **Selesai** → PO ada + Approval 1 & 2 lengkap.
+- **Alur proses (flow)** dihitung otomatis mengikuti alur bisnis **PR → Approval → PO (penawaran vendor) → barang datang**:
+  - **Menunggu Approval** → Approval 1 / 2 belum lengkap (PO belum wajib pada tahap ini).
+  - **Menunggu PO** → Approval lengkap, Nomor PO belum ada — **siap penawaran ke vendor oleh tim purchasing**.
+  - **Selesai** → Approval lengkap + PO sudah diterbitkan.
 - **Warning aging** → umur order ≥ 7 hari (default), **Kritis** → ≥ 14 hari.
 - **Pengecualian aging**: order dengan Status Kedatangan **"Sudah"** tidak dihitung sebagai warning/kritis dan tidak muncul di daftar Aging Order (barangnya telah tiba). Tersedia checkbox "Tampilkan yang sudah datang" untuk tetap menampilkannya. Status "Sebagian" **tetap** dihitung karena sisanya masih perlu follow-up.
 

@@ -1443,8 +1443,9 @@ function renderTipe(){
     return { key:t, label:t, value:tCount[t]||0, color:TIPE_COLORS[t], drill:'tipe:'+t };
   });
 
-  /* daftar CAPEX tanpa NO CAPEX */
-  var capexNoList = capexTanpaNo.length ? capexTanpaNo.map(function(r){
+  /* daftar CAPEX tanpa NO CAPEX (maks 30 entri - sisanya lewat tabel CAPEX di bawah, agar render tetap ringan) */
+  var capexShow = capexTanpaNo.slice(0, 30);
+  var capexNoList = capexTanpaNo.length ? capexShow.map(function(r){
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px">'
       + '<span class="badge" style="background:#8b5cf614;color:#8b5cf6"><span class="dot"></span>CAPEX</span>'
       + '<div style="min-width:0;flex:1">'
@@ -1453,7 +1454,7 @@ function renderTipe(){
       + '</div>'
       + '<span class="badge divi">'+esc(r.divisi)+'</span>'
       + '</div>';
-  }).join('') : '<div class="empty">Semua order CAPEX sudah memiliki No CAPEX &#10003;</div>';
+  }).join('') + (capexTanpaNo.length > capexShow.length ? '<div class="mini" style="padding:6px 2px">+ '+(capexTanpaNo.length-capexShow.length)+' order CAPEX lainnya tanpa No CAPEX &mdash; lihat tabel CAPEX di bawah</div>' : '') : '<div class="empty">Semua order CAPEX sudah memiliki No CAPEX &#10003;</div>';
 
   /* daftar CAPEX + NO CAPEX */
   var capexRows = rows.filter(function(r){ return tipe(r)==='CAPEX'; });
@@ -1956,6 +1957,7 @@ function openDrill(key){
   LAST_DRILL_KEY = key;
   if(isNewCat && state.pg.drill) state.pg.drill.page = 1; /* kategori baru → mulai hal. 1 */
   var rows = spec.rows;
+  if(!rows.length && state.pg.drill) state.pg.drill.count = 0; /* kategori kosong -> count jangan basi dari kategori sebelumnya */
   var trs = rows.length ? paginate('drill', rows).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');

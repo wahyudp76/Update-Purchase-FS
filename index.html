@@ -1944,11 +1944,18 @@ function drillSpec(key){
   return null;
 }
 
+var LAST_DRILL_KEY = null;
+function drillOpen(){
+  var b = document.getElementById('drillBack');
+  return !!(b && b.style.display === 'flex');
+}
 function openDrill(key){
   var spec = drillSpec(key);
   if(!spec){ toast('Kategori tidak dikenal'); return; }
+  var isNewCat = LAST_DRILL_KEY !== key;
+  LAST_DRILL_KEY = key;
+  if(isNewCat && state.pg.drill) state.pg.drill.page = 1; /* kategori baru → mulai hal. 1 */
   var rows = spec.rows;
-  if(state.pg.drill) state.pg.drill.page = 1; /* kategori baru → mulai hal. 1 */
   var trs = rows.length ? paginate('drill', rows).map(function(r){
     var ac = agingClass(r);
     var cls = ac==='crit' ? 'row-crit' : (ac==='warn' ? 'row-warn' : '');
@@ -2432,7 +2439,11 @@ document.addEventListener('click', function(e){
     e.preventDefault();
     var pk = pgB.getAttribute('data-pg'), ci = pk.indexOf(':');
     var pKey = pk.slice(0, ci), pTarget = parseInt(pk.slice(ci + 1), 10);
-    if(state.pg[pKey] && isFinite(pTarget) && pTarget >= 1){ state.pg[pKey].page = pTarget; render(); }
+    if(state.pg[pKey] && isFinite(pTarget) && pTarget >= 1){
+      state.pg[pKey].page = pTarget;
+      if(pKey === 'drill' && drillOpen() && LAST_DRILL_KEY){ openDrill(LAST_DRILL_KEY); } /* render ulang isi modal drill */
+      else render();
+    }
     return;
   }
   /* aksi edit/hapus via delegasi: 1 listener utk semua tombol (termasuk drill modal),
@@ -2451,7 +2462,8 @@ document.addEventListener('change', function(e){
     var sz = parseInt(el.value, 10);
     if(sz === 10 || sz === 25 || sz === 50) state.pg[key].size = sz;
     state.pg[key].page = 1;
-    render();
+    if(key === 'drill' && drillOpen() && LAST_DRILL_KEY){ openDrill(LAST_DRILL_KEY); } /* render ulang isi modal drill */
+    else render();
   }
 });
 document.addEventListener('keydown', function(e){

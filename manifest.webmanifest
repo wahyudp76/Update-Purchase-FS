@@ -10,7 +10,7 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#f4f5f7",
-  "theme_color": "#4f46e5",
+  "theme_color": "#1f267a",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },

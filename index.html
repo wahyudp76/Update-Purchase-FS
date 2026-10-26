@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitor Order PR &amp; PO — Purchase Dashboard</title>
   <meta name="description" content="Dashboard monitor order bahan & spareparts: status PR/PO, approval, dan peringatan aging order. Auto-sync dari Google Sheets.">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#1f267a">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Order PR/PO">
 
-  <!-- Favicon & icons (?v=3 = cache-bust, ganti angka bila ikon di-update lagi) -->
-  <link rel="icon" href="icons/favicon.ico?v=3" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=3">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=3">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=3">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=3">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=3">
-  <link rel="mask-icon" href="icons/icon.svg" color="#4f46e5">
+  <!-- Favicon & icons (?v=4 = cache-bust, ganti angka bila ikon di-update lagi) -->
+  <link rel="icon" href="icons/favicon.ico?v=4" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=4">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=4">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=4">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=4">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=4">
+  <link rel="mask-icon" href="icons/icon.svg" color="#1f267a">
 
   <!-- Windows tile -->
-  <meta name="msapplication-TileColor" content="#4f46e5">
-  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=3">
+  <meta name="msapplication-TileColor" content="#1f267a">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=4">
   <meta name="msapplication-config" content="browserconfig.xml">
   <style>
 :root{
@@ -66,10 +66,12 @@ header.top{
 .header-inner{padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand .logo{
-  width:38px;height:38px;border-radius:11px;flex-shrink:0;
+  width:38px;height:38px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 6px 14px -6px rgba(79,70,229,.55);
-  overflow:hidden;
+}
+.brand .logo img{
+  width:36px;height:36px;object-fit:contain;display:block;
+  filter:drop-shadow(0 2px 5px rgba(31,38,122,.28));
 }
 .brand h1{font-size:16.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
 .brand .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -313,17 +315,8 @@ tr.row-crit:hover{background:#ffeded!important}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
-          <defs>
-            <linearGradient id="lgHdr" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#4338ca"/><stop offset=".42" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5e9"/>
-            </linearGradient>
-          </defs>
-          <rect width="100" height="100" rx="28" fill="url(#lgHdr)"/>
-          <path d="M31 47 44 60 69 31" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="31" y="71.5" width="38" height="6.5" rx="3.2" fill="#ffffff" opacity=".94"/>
-          <rect x="31" y="83.5" width="22" height="6.5" rx="3.2" fill="#ffffff" opacity=".8"/>
-        </svg>
+        <img src="icons/logo-head.png?v=4" alt="Logo Order Spareparts" width="36" height="36"
+             onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'34\' height=\'34\' fill=\'none\' stroke=\'#1f267a\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
       </div>
       <div>
         <h1>Monitor Order PR &amp; PO</h1>

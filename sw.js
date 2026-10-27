@@ -3,24 +3,24 @@
    - index.html & sw.js & browserconfig.xml : selalu network-first (biar update kode langsung tampil)
    - aset statis (ikon/manifest)            : cache-first (cepat & aman)
    - data Google Sheets (cross-origin)      : tidak pernah di-cache (selalu network) */
-const CACHE = 'pfs-v38';
+const CACHE = 'pfs-v39';
 const STATIC = [
   './manifest.webmanifest',
   './browserconfig.xml',
-  './icons/icon.svg?v=5',
-  './icons/logo-white.png?v=5',
-  './icons/favicon.ico?v=5',
+  './icons/icon.svg?v=6',
+  './icons/logo-mark.png?v=6',
+  './icons/favicon.ico?v=6',
   './icons/icon-1024.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png',
   './icons/icon-192-maskable.png',
-  './icons/android-chrome-192x192.png?v=5',
+  './icons/android-chrome-192x192.png?v=6',
   './icons/android-chrome-512x512.png',
-  './icons/apple-touch-icon.png?v=5',
-  './icons/mstile-150x150.png?v=5',
-  './icons/favicon-16x16.png?v=5',
-  './icons/favicon-32x32.png?v=5',
-  './icons/favicon-48x48.png?v=5'
+  './icons/apple-touch-icon.png?v=6',
+  './icons/mstile-150x150.png?v=6',
+  './icons/favicon-16x16.png?v=6',
+  './icons/favicon-32x32.png?v=6',
+  './icons/favicon-48x48.png?v=6'
 ];
 const NETWORK_FIRST = ['./', './index.html', './sw.js', './browserconfig.xml'];
 

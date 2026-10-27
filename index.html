@@ -66,12 +66,15 @@ header.top{
 .header-inner{padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .brand .logo{
-  width:38px;height:38px;flex-shrink:0;
+  /* badge 40x40 rounded-xl dgn gradasi brand - sama pola dgn header FS-evaluation */
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#2b36a8,#1a2067);
+  box-shadow:0 6px 14px -6px rgba(31,38,122,.55);
 }
 .brand .logo img{
-  width:36px;height:36px;object-fit:contain;display:block;
-  filter:drop-shadow(0 2px 5px rgba(31,38,122,.28));
+  width:26px;height:26px;object-fit:contain;display:block;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.28));
 }
 .brand h1{font-size:16.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
 .brand .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -315,8 +318,8 @@ tr.row-crit:hover{background:#ffeded!important}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <img src="icons/logo-head.png?v=4" alt="Logo Order Spareparts" width="36" height="36"
-             onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'34\' height=\'34\' fill=\'none\' stroke=\'#1f267a\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
+        <img src="icons/logo-white.png?v=4" alt="Logo Order Spareparts" width="26" height="26"
+             onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'26\' height=\'26\' fill=\'none\' stroke=\'#ffffff\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
       </div>
       <div>
         <h1>Monitor Order PR &amp; PO</h1>

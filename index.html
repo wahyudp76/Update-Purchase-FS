@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Order PR/PO">
 
-  <!-- Favicon & icons (?v=10 = cache-bust, ganti angka bila ikon di-update lagi) -->
-  <link rel="icon" href="icons/favicon.ico?v=10" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=10">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=10">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=10">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=10">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=10">
+  <!-- Favicon & icons (?v=11 = cache-bust, ganti angka bila ikon di-update lagi) -->
+  <link rel="icon" href="icons/favicon.ico?v=11" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=11">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=11">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=11">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=11">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=11">
   <link rel="mask-icon" href="icons/icon.svg" color="#1f267a">
 
   <!-- Windows tile -->
   <meta name="msapplication-TileColor" content="#1f267a">
-  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=10">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=11">
   <meta name="msapplication-config" content="browserconfig.xml">
   <style>
 :root{
@@ -317,7 +317,7 @@ tr.row-crit:hover{background:#ffeded!important}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <img src="icons/logo-mark.png?v=10" alt="Logo Order Spareparts" width="40" height="40"
+        <img src="icons/logo-mark.png?v=11" alt="Logo Order Spareparts" width="40" height="40"
              onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'40\' height=\'40\' fill=\'none\' stroke=\'#ffffff\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
       </div>
       <div>
@@ -888,6 +888,24 @@ function apprBadge(val, ok){
 /* Nomor awal order: PR MANUAL/MO -> Nomor Reservasi; CAPEX -> No CAPEX (identitas, bukan tahapan) */
 function noAwal(r){
   return (r.tipe === 'CAPEX' ? r.noCapex : r.resv) || '';
+}
+
+/* Tahap tempat order TERHENTI saat ini — setiap order hanya dihitung di SATU tahap
+   (tahap pertama yang belum selesai sesuai urutan alur tipenya). */
+function stuckStage(r){
+  if(r.tipe === 'CAPEX'){
+    if(!r.appr1) return 'a1';
+    if(!r.appr2) return 'a2';
+    if(!r.hasPR) return 'pr';
+    if(!r.hasPO) return 'po';
+    return 'done';
+  }
+  if(!r.hasResv && !r.hasPR) return 'resv'; /* belum ada nomor apapun */
+  if(!r.hasPR) return 'pr';
+  if(!r.appr1) return 'a1';
+  if(!r.appr2) return 'a2';
+  if(!r.hasPO) return 'po';
+  return 'done';
 }
 function hexA(hex, a){
   var h = hex.replace('#','');
@@ -1688,28 +1706,35 @@ function renderStatus(){
   }).join('') : '<tr><td colspan="11"><div class="empty">Semua order sudah selesai — PR & approval lengkap, PO terbit ✓</div></td></tr>';
 
   /* STEPPER GANDA — alur berbeda per tipe, konvergen di PR -> penawaran -> PO */
+  /* STEPPER: jumlah order yang TERHENTI di tiap tahap (bukan kumulatif) */
   function stepBar(steps, gtot){
     if(!gtot) return '<div class="empty">Belum ada order tipe ini dalam filter aktif</div>';
     return '<div class="stepper">' + steps.map(function(s){
-      var pct = Math.round((s.n||0)/gtot*100);
-      var cls = pct===100 ? ' done' : '';
-      return '<div class="step'+cls+'"'+' data-drill="'+s.drill+'" role="button" tabindex="0" title="Klik untuk melihat order"><div class="num">'+nf(s.n)+'</div><div class="cap">'+s.cap+'</div><div class="bar"><div class="fill" style="width:'+pct+'%;background:'+s.color+'"></div></div></div>';
+      var n = s.n || 0;
+      var pct = Math.round(n/gtot*100);
+      /* tahap terhenti: kartu HIJAU bila 0 order macet di sana; tahap Selesai: hijau bila ada yg selesai */
+      var cls = s.stuck ? (n ? '' : ' done') : (n ? ' done' : '');
+      var col = s.stuck ? (n ? s.color : '#10b981') : '#10b981';
+      return '<div class="step'+cls+'"'+' data-drill="'+s.drill+'" role="button" tabindex="0" title="Klik untuk melihat order yang terhenti di tahap ini"><div class="num" style="color:'+col+'">'+nf(n)+'</div><div class="cap">'+s.cap+'</div><div class="bar"><div class="fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
     }).join('') + '</div>';
   }
   var Rpm = R0.filter(function(r){ return r.tipe!=='CAPEX'; }); /* PR MANUAL + MO */
   var Rcx = R0.filter(function(r){ return r.tipe==='CAPEX'; });
+  var stk = function(rows, st){ return rows.filter(function(r){ return stuckStage(r)===st; }).length; };
   var stPm = stepBar([
-    {cap:'No Reservasi',     n:Rpm.filter(function(r){return r.hasResv;}).length, color:'#4f46e5', drill:'fs-pm-resv'},
-    {cap:'No PR',            n:Rpm.filter(function(r){return r.hasPR;}).length,  color:'#6366f1', drill:'fs-pm-pr'},
-    {cap:'Approval 1',       n:Rpm.filter(function(r){return r.appr1;}).length,  color:'#8b5cf6', drill:'fs-pm-a1'},
-    {cap:'Approval 2',       n:Rpm.filter(function(r){return r.appr2;}).length,  color:'#a78bfa', drill:'fs-pm-a2'},
-    {cap:'No PO (Penawaran)',n:Rpm.filter(function(r){return r.hasPO;}).length,  color:'#0ea5e9', drill:'fs-pm-po'}
+    {cap:'Terhenti: No Reservasi',      n:stk(Rpm,'resv'), color:'#f59e0b', drill:'st-pm-resv', stuck:true},
+    {cap:'Terhenti: No PR',             n:stk(Rpm,'pr'),   color:'#f59e0b', drill:'st-pm-pr',   stuck:true},
+    {cap:'Terhenti: Approval 1',        n:stk(Rpm,'a1'),   color:'#8b5cf6', drill:'st-pm-a1',   stuck:true},
+    {cap:'Terhenti: Approval 2',        n:stk(Rpm,'a2'),   color:'#8b5cf6', drill:'st-pm-a2',   stuck:true},
+    {cap:'Terhenti: No PO (Penawaran)', n:stk(Rpm,'po'),   color:'#0ea5e9', drill:'st-pm-po',   stuck:true},
+    {cap:'Selesai — PO Terbit',         n:stk(Rpm,'done'), color:'#10b981', drill:'st-pm-done'}
   ], Rpm.length);
   var stCx = stepBar([
-    {cap:'Approval 1',           n:Rcx.filter(function(r){return r.appr1;}).length,   color:'#8b5cf6', drill:'fs-cx-a1'},
-    {cap:'Approval 2',           n:Rcx.filter(function(r){return r.appr2;}).length,   color:'#a78bfa', drill:'fs-cx-a2'},
-    {cap:'No PR',                n:Rcx.filter(function(r){return r.hasPR;}).length,   color:'#6366f1', drill:'fs-cx-pr'},
-    {cap:'No PO (Penawaran)',    n:Rcx.filter(function(r){return r.hasPO;}).length,   color:'#0ea5e9', drill:'fs-cx-po'}
+    {cap:'Terhenti: Approval 1',        n:stk(Rcx,'a1'),   color:'#8b5cf6', drill:'st-cx-a1',   stuck:true},
+    {cap:'Terhenti: Approval 2',        n:stk(Rcx,'a2'),   color:'#8b5cf6', drill:'st-cx-a2',   stuck:true},
+    {cap:'Terhenti: No PR',             n:stk(Rcx,'pr'),   color:'#f59e0b', drill:'st-cx-pr',   stuck:true},
+    {cap:'Terhenti: No PO (Penawaran)', n:stk(Rcx,'po'),   color:'#0ea5e9', drill:'st-cx-po',   stuck:true},
+    {cap:'Selesai — PO Terbit',         n:stk(Rcx,'done'), color:'#10b981', drill:'st-cx-done'}
   ], Rcx.length);
 
   return '<section class="tab-page">'
@@ -1717,7 +1742,7 @@ function renderStatus(){
     + '<div class="card" style="margin-bottom:16px">'
     + '<h3><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>Alur Proses — PR MANUAL &amp; MO</h3>'+stPm
     + '<h3 style="margin-top:16px"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 6-8"/><path d="M14 7h4v4"/></svg>Alur Proses — CAPEX</h3>'+stCx
-    + '<p class="hint">PR MANUAL &amp; MO: Input &rarr; <b>No Reservasi</b> &rarr; <b>No PR</b> &rarr; Approval 1 &rarr; Approval 2 &rarr; Penawaran &rarr; <b>No PO</b>. CAPEX: <b>No CAPEX</b> (nomor hasil budgeting — sudah dimiliki sejak awal, bukan tahapan yang ditunggu) &rarr; Approval 1 &rarr; Approval 2 &rarr; <b>No PR</b> &rarr; Penawaran &rarr; <b>No PO</b>. Klik angka tahapan untuk melihat order-nya.</p></div>'
+    + '<p class="hint">PR MANUAL &amp; MO: Input &rarr; <b>No Reservasi</b> &rarr; <b>No PR</b> &rarr; Approval 1 &rarr; Approval 2 &rarr; Penawaran &rarr; <b>No PO</b>. CAPEX: <b>No CAPEX</b> (nomor hasil budgeting — sudah dimiliki sejak awal, bukan tahapan yang ditunggu) &rarr; Approval 1 &rarr; Approval 2 &rarr; <b>No PR</b> &rarr; Penawaran &rarr; <b>No PO</b>. <b>Angka tiap tahap = jumlah order yang saat ini TERHENTI di tahap tersebut</b> — setiap order hanya dihitung di satu tahap (tempatnya macet sekarang), jadi totalnya = seluruh order tipe itu. Kartu hijau = tidak ada order yang macet di tahap tersebut. Klik angka untuk melihat order-nya.</p></div>'
     + '<div class="grid cols-2" style="margin-bottom:16px">'
     + kpi(IC.clock, nf(nopr), 'Menunggu PR', 'nomor PR belum keluar', '#f59e0b', 'st-nopr')
     + kpi(IC.clock, nf(wait), 'Menunggu Approval', 'approval 1 / 2 belum lengkap — sama dgn Overview', '#8b5cf6', 'st-wait')
@@ -2004,16 +2029,18 @@ function drillSpec(key){
   if(k==='st-done')     return {t:'Selesai — PO Terbit', s:'PR & approval lengkap, PO terbit', c:'#10b981', rows:byAge(function(r){ return r.flowKey==='done'; })};
   if(k==='st-wait')     return {t:'Menunggu Approval', s:'approval 1 / 2 belum lengkap', c:'#8b5cf6', rows:byAge(function(r){ return r.flowKey==='wait'; })};
   if(k==='st-nopo')     return {t:'Siap Penawaran (Menunggu PO)', s:'siap penawaran vendor — menunggu PO dari purchasing', c:'#0ea5e9', rows:byAge(function(r){ return r.flowKey==='nopo'; })};
-  /* stepper ganda: tahapan per alur (fs = flow step) */
-  if(k==='fs-pm-resv')  return {t:'PR MANUAL & MO · No Reservasi', s:'sudah punya nomor reservasi', c:'#4f46e5', rows:byAge(function(r){ return r.tipe!=='CAPEX' && r.hasResv; })};
-  if(k==='fs-pm-pr')    return {t:'PR MANUAL & MO · No PR', s:'sudah menjadi PR', c:'#6366f1', rows:byAge(function(r){ return r.tipe!=='CAPEX' && r.hasPR; })};
-  if(k==='fs-pm-a1')    return {t:'PR MANUAL & MO · Approval 1', c:'#8b5cf6', rows:byAge(function(r){ return r.tipe!=='CAPEX' && r.appr1; })};
-  if(k==='fs-pm-a2')    return {t:'PR MANUAL & MO · Approval 2', c:'#a78bfa', rows:byAge(function(r){ return r.tipe!=='CAPEX' && r.appr2; })};
-  if(k==='fs-pm-po')    return {t:'PR MANUAL & MO · No PO (Penawaran)', s:'penawaran selesai — PO terbit', c:'#0ea5e9', rows:byAge(function(r){ return r.tipe!=='CAPEX' && r.hasPO; })};
-  if(k==='fs-cx-a1')    return {t:'CAPEX · Approval 1', c:'#a78bfa', rows:byAge(function(r){ return r.tipe==='CAPEX' && r.appr1; })};
-  if(k==='fs-cx-a2')    return {t:'CAPEX · Approval 2', c:'#c4b5fd', rows:byAge(function(r){ return r.tipe==='CAPEX' && r.appr2; })};
-  if(k==='fs-cx-pr')    return {t:'CAPEX · No PR', s:'approval budget selesai — sudah menjadi PR', c:'#6366f1', rows:byAge(function(r){ return r.tipe==='CAPEX' && r.hasPR; })};
-  if(k==='fs-cx-po')    return {t:'CAPEX · No PO (Penawaran)', s:'penawaran selesai — PO terbit', c:'#0ea5e9', rows:byAge(function(r){ return r.tipe==='CAPEX' && r.hasPO; })};
+  /* stepper ganda: order yang TERHENTI di tiap tahap (st = stuck stage) */
+  if(k==='st-pm-resv')  return {t:'PR MANUAL & MO · Terhenti di No Reservasi', s:'belum ada nomor reservasi', c:'#f59e0b', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='resv'; })};
+  if(k==='st-pm-pr')    return {t:'PR MANUAL & MO · Terhenti di No PR', s:'punya reservasi — nomor PR belum keluar', c:'#f59e0b', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='pr'; })};
+  if(k==='st-pm-a1')    return {t:'PR MANUAL & MO · Terhenti di Approval 1', c:'#8b5cf6', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='a1'; })};
+  if(k==='st-pm-a2')    return {t:'PR MANUAL & MO · Terhenti di Approval 2', s:'approval 1 sudah — approval 2 belum', c:'#8b5cf6', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='a2'; })};
+  if(k==='st-pm-po')    return {t:'PR MANUAL & MO · Terhenti di No PO (Penawaran)', s:'approval lengkap — menunggu PO dari purchasing', c:'#0ea5e9', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='po'; })};
+  if(k==='st-pm-done')  return {t:'PR MANUAL & MO · Selesai — PO Terbit', s:'semua tahap selesai', c:'#10b981', rows:byAge(function(r){ return r.tipe!=='CAPEX' && stuckStage(r)==='done'; })};
+  if(k==='st-cx-a1')    return {t:'CAPEX · Terhenti di Approval 1', c:'#8b5cf6', rows:byAge(function(r){ return r.tipe==='CAPEX' && stuckStage(r)==='a1'; })};
+  if(k==='st-cx-a2')    return {t:'CAPEX · Terhenti di Approval 2', s:'approval 1 sudah — approval 2 belum', c:'#8b5cf6', rows:byAge(function(r){ return r.tipe==='CAPEX' && stuckStage(r)==='a2'; })};
+  if(k==='st-cx-pr')    return {t:'CAPEX · Terhenti di No PR', s:'approval sudah lengkap — nomor PR belum keluar', c:'#f59e0b', rows:byAge(function(r){ return r.tipe==='CAPEX' && stuckStage(r)==='pr'; })};
+  if(k==='st-cx-po')    return {t:'CAPEX · Terhenti di No PO (Penawaran)', s:'approval & PR lengkap — menunggu PO dari purchasing', c:'#0ea5e9', rows:byAge(function(r){ return r.tipe==='CAPEX' && stuckStage(r)==='po'; })};
+  if(k==='st-cx-done')  return {t:'CAPEX · Selesai — PO Terbit', s:'semua tahap selesai', c:'#10b981', rows:byAge(function(r){ return r.tipe==='CAPEX' && stuckStage(r)==='done'; })};
   if(k==='st-arr')      return {t:'Sudah Datang',      c:'#10b981', rows:byAge(function(r){ return r.statusKey==='sudah'; })};
   if(k==='st-notarr')   return {t:'Belum Datang',      c:'#f59e0b', rows:byAge(function(r){ return r.statusKey!=='sudah'; })};
   if(k==='ap-a1')       return {t:'Approval 1 OK',     c:'#8b5cf6', rows:byAge(function(r){ return r.appr1; })};

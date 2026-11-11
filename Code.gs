@@ -3,9 +3,13 @@
  *  Menerima aksi ADD / EDIT / DELETE / MIGRATE dari dashboard (GitHub Pages)
  *  lalu menuliskannya ke Google Spreadsheet yang sama.
  *
- *  VERSION: 3.0 (revisi alur proses order)
+ *  VERSION: 3.1 (pindah ke spreadsheet baru "Data Reservasi PR dan PO")
  *
- *  PERUBAHAN v3 (revisi alur — 3 tipe order: PR MANUAL / MO / CAPEX):
+ *  PERUBAHAN v3.1 (7 Nov 2026):
+ *  - Spreadsheet baru: 1VW8t_bphHBQ7HxFpiv3S5plFgpkoBIO5xc4yaBi6gI0 (tab "Response")
+ *    Tanpa kolom Timestamp (13 kolom). Penulisan tetap BY NAMA HEADER — aman.
+ *
+ *  PERUBAHAN v3.0 (revisi alur — 3 tipe order: PR MANUAL / MO / CAPEX):
  *  - Kolom baru "Nomor Reservasi" (otomatis disisipkan sebelum "Nomor PR"):
  *      PR MANUAL & MO : Input -> No RESERVASI -> No PR -> Approval 1 & 2 -> Penawaran -> No PO
  *      CAPEX          : Budgeting -> No CAPEX -> Approval 1 & 2 -> No PR -> Penawaran -> No PO
@@ -20,19 +24,18 @@
  *  3. Klik Deploy -> Manage deployments -> klik icon ✏️ (edit) pada
  *     deployment yang ada -> Version: "New version" -> Deploy.
  *  4. Verifikasi: buka URL web app di browser (GET) -> harus tampil
- *     {"ok":true,...,"version":"3.0","headers":[...14 kolom...]}.
+ *     {"ok":true,...,"version":"3.1","headers":[...13 kolom...]}.
  *  5. Jalankan migrasi (dashboard/agent akan memanggil action "migrate").
  ************************************************************************/
 
-var VERSION = '3.0';
+var VERSION = '3.1';
 var SECRET = ''; // kosongkan = tanpa kunci; isi string rahasia untuk proteksi sederhana
-var SHEET_ID_FALLBACK = '1F9BpVC2wrV2VIc5cJ5M5EmwlptXnnf6eafo0nMY7KFc';
+var SHEET_ID_FALLBACK = '1VW8t_bphHBQ7HxFpiv3S5plFgpkoBIO5xc4yaBi6gI0'; /* spreadsheet baru "Data Reservasi PR dan PO" */
 var SHEET_NAME_FALLBACK = 'Response';
 
-/* urutan kolom referensi (14 kolom, termasuk "Nomor Reservasi").
+/* urutan kolom referensi (13 kolom — spreadsheet baru tanpa "Timestamp").
  * Hanya untuk info/echo — penulisan v3 memakai NAMA HEADER aktual di sheet. */
 var HEADERS = [
-  'Timestamp',
   'Tanggal Input Reservasi',
   'Divisi',
   'Jenis Order',

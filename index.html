@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Order PR/PO">
 
-  <!-- Favicon & icons (?v=16 = cache-bust, ganti angka bila ikon di-update lagi) -->
-  <link rel="icon" href="icons/favicon.ico?v=16" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=16">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=16">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=16">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=16">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=16">
+  <!-- Favicon & icons (?v=17 = cache-bust, ganti angka bila ikon di-update lagi) -->
+  <link rel="icon" href="icons/favicon.ico?v=17" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=17">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=17">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=17">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=17">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=17">
   <link rel="mask-icon" href="icons/icon.svg" color="#1f267a">
 
   <!-- Windows tile -->
   <meta name="msapplication-TileColor" content="#1f267a">
-  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=16">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=17">
   <meta name="msapplication-config" content="browserconfig.xml">
   <style>
 :root{
@@ -317,20 +317,17 @@ tr.row-crit:hover{background:#ffeded!important}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <img src="icons/logo-mark.png?v=16" alt="Logo Order Spareparts" width="40" height="40"
+        <img src="icons/logo-mark.png?v=17" alt="Logo Order Spareparts" width="40" height="40"
              onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'40\' height=\'40\' fill=\'none\' stroke=\'#ffffff\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
       </div>
       <div>
         <h1>Monitor Order PR &amp; PO</h1>
-        <div class="sub">Bahan &amp; Spareparts · Sheet "Response" · Auto-sync</div>
+        <div class="sub">Bahan &amp; Spareparts · Sheet "Response"</div>
       </div>
     </div>
     <div class="header-actions">
       <span class="sync-pill" id="syncPill"><span class="dot load" id="syncDot"></span><span id="syncText">Memuat…</span></span>
       <button class="sync-pill" id="qaPill" style="display:none;cursor:pointer;font-weight:700">⚠ <span id="qaCount">0</span> masalah data</button>
-      <label class="sync-pill wrap-on" style="cursor:pointer" title="Auto sync tiap 5 menit">
-        <input type="checkbox" id="autoSync" checked style="accent-color:var(--accent)"> Auto-sync 5 menit
-      </label>
       <button class="btn" id="refreshBtn" title="Ambil data terbaru dari spreadsheet">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         Refresh
@@ -496,7 +493,6 @@ function dedupeRows(rows){
 var ROWS = [];
 var LIVE = false;
 var LAST_SYNC = null;
-var AUTO_TIMER = null;
 var SYNC_ERROR = null;
 var state = { tab:'overview', q:'', divFilter:'all', stFilter:'all', warnTh:14, critTh:30, /* default: warning 14 hari, kritis 30 hari */ sortKey:'age', sortDir:-1, exportRows:[], showArrivedAging:false, qaFilter:'all', tipeFilter:'all', ageDiv:'all', ovF:{div:'all', st:'all', kep:'all', tipe:'all', per:'all'}, pg:{} };
 (function(){
@@ -2648,16 +2644,6 @@ if('serviceWorker' in navigator){
   });
 }
 
-document.getElementById('autoSync').addEventListener('change', function(e){
-  clearInterval(AUTO_TIMER); AUTO_TIMER = null;
-  if(e.target.checked){
-    AUTO_TIMER = setInterval(function(){ if(!document.hidden) refresh(); }, 5*60*1000);
-    toast('Auto-sync aktif (tiap 5 menit)');
-  } else {
-    toast('Auto-sync nonaktif');
-  }
-});
-
 /* ===== drill-down global: klik box kategori di semua tab ===== */
 document.addEventListener('click', function(e){
   if(!e.target || !e.target.closest) return;
@@ -2730,19 +2716,11 @@ document.addEventListener('keydown', function(e){
 
 /* init dengan snapshot dulu agar cepat tampil */
 var _subEl = document.querySelector('.brand .sub');
-if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '" · Auto-sync';
+if(_subEl) _subEl.textContent = 'Bahan & Spareparts · Sheet "' + SHEET_NAME + '"';
 setRows(loadFromSnapshot(), false, null);
-/* jalankan auto-sync STARTUP (default ON karena checkbox checked) */
-if(document.getElementById('autoSync').checked){
-  AUTO_TIMER = setInterval(function(){ if(!document.hidden) refresh(); }, 5*60*1000);
-}
-/* tab kembali terlihat & data sudah stale >5 menit → sync segera (hemat baterai saat background) */
-document.addEventListener('visibilitychange', function(){
-  if(!document.hidden && document.getElementById('autoSync').checked && LAST_SYNC && (Date.now() - LAST_SYNC.getTime() > 5*60*1000)){
-    refresh();
-  }
-});
-refresh(); /* lalu coba live segera */
+/* Sinkronisasi HANYA: (1) saat halaman dimuat/reload, (2) saat tombol Sync/Refresh ditekan,
+   (3) setelah simpan/hapus agar tampilan mengikuti perubahan. Tidak ada auto-sync berkala. */
+refresh(); /* sync saat halaman dibuka/di-reload */
 
 /* update service worker jika versi baru tersedia */
 if('serviceWorker' in navigator && navigator.serviceWorker.controller){

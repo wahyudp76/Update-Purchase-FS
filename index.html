@@ -14,18 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Order PR/PO">
 
-  <!-- Favicon & icons (?v=18 = cache-bust, ganti angka bila ikon di-update lagi) -->
-  <link rel="icon" href="icons/favicon.ico?v=18" sizes="48x48">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=18">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=18">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=18">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=18">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=18">
+  <!-- Favicon & icons (?v=19 = cache-bust, ganti angka bila ikon di-update lagi) -->
+  <link rel="icon" href="icons/favicon.ico?v=19" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png?v=19">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=19">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=19">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg?v=19">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=19">
   <link rel="mask-icon" href="icons/icon.svg" color="#1f267a">
 
   <!-- Windows tile -->
   <meta name="msapplication-TileColor" content="#1f267a">
-  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=18">
+  <meta name="msapplication-TileImage" content="icons/mstile-150x150.png?v=19">
   <meta name="msapplication-config" content="browserconfig.xml">
   <style>
 :root{
@@ -309,6 +309,25 @@ tr.row-crit:hover{background:#ffeded!important}
   nav.tabs{padding:0 8px}
   .search{min-width:100%}
 }
+
+/* ---------- Target sentuh (Android/mobile): elemen interaktif diperbesar agar mudah &
+   akurat ditekan — aktif di perangkat sentuh (pointer:coarse) atau layar sempit <=768px;
+   tampilan desktop (mouse) tidak berubah ---------- */
+@media (pointer:coarse), (max-width:768px){
+  .btn{min-height:40px}
+  .sync-pill{min-height:40px}
+  .btn-act{width:42px;height:42px}
+  .btn-act svg{width:17px;height:17px}
+  .btn.pg-btn{min-width:44px;min-height:40px;padding:9px 12px}
+  .btn.mini-tipe{min-height:40px}
+  .num-in{min-height:40px}
+  .search input{min-height:40px;font-size:16px} /* 16px: hindari auto-zoom saat fokus di browser mobile */
+  select.select{min-height:40px}
+  input[type="checkbox"]{width:20px;height:20px}
+  th.sortable{padding-top:14px;padding-bottom:14px}
+  .hbars div.clickable{padding:10px 9px;margin:-10px -9px;min-height:40px;box-sizing:border-box}
+  .legend .row.clickable{padding:9px 9px;margin:-9px -9px;min-height:40px;box-sizing:border-box}
+}
 </style>
 </head>
 <body>
@@ -317,7 +336,7 @@ tr.row-crit:hover{background:#ffeded!important}
   <div class="header-inner">
     <div class="brand">
       <div class="logo">
-        <img src="icons/logo-mark.png?v=18" alt="Logo Order Spareparts" width="40" height="40"
+        <img src="icons/logo-mark.png?v=19" alt="Logo Order Spareparts" width="40" height="40"
              onerror="this.outerHTML='<svg viewBox=\'0 0 24 24\' width=\'40\' height=\'40\' fill=\'none\' stroke=\'#ffffff\' stroke-width=\'2\' stroke-linecap=\'round\'><circle cx=\'12\' cy=\'12\' r=\'3.4\'/><path d=\'M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9\'/></svg>'">
       </div>
       <div>
